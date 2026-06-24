@@ -1,636 +1,884 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Download, Plus, Settings, FolderClosed, BarChart2, 
-  LayoutGrid, Brain, ChevronRight, X, AlertCircle, Clock,
-  Sun, Moon, ToggleLeft, ToggleRight, Loader2
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Download, Plus, Brain, ChevronRight, X, Clock,
+  Sun, Moon, ToggleLeft, ToggleRight, Loader2, Check,
+  BookOpen, MessageSquare, LayoutGrid, FileText
 } from 'lucide-react';
 
-const loadScript = (src) => {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Script load error for ${src}`));
-    document.head.appendChild(script);
-  });
+// ─────────────────────────── CONSTANTS ───────────────────────────
+
+const EMOTION_COLORS = {
+  'اضطراب':     { hex: '#f59e0b', bgL: '#fef3c7', bgD: 'rgba(245,158,11,0.15)', txL: '#92400e', txD: '#fbbf24', bdL: '#fcd34d', bdD: 'rgba(245,158,11,0.35)' },
+  'غم':         { hex: '#3b82f6', bgL: '#dbeafe', bgD: 'rgba(59,130,246,0.15)',  txL: '#1e40af', txD: '#60a5fa', bdL: '#93c5fd', bdD: 'rgba(59,130,246,0.35)' },
+  'خشم':        { hex: '#ef4444', bgL: '#fee2e2', bgD: 'rgba(239,68,68,0.15)',   txL: '#991b1b', txD: '#f87171', bdL: '#fca5a5', bdD: 'rgba(239,68,68,0.35)'  },
+  'ترس':        { hex: '#8b5cf6', bgL: '#ede9fe', bgD: 'rgba(139,92,246,0.15)',  txL: '#5b21b6', txD: '#a78bfa', bdL: '#c4b5fd', bdD: 'rgba(139,92,246,0.35)' },
+  'عذاب وجدان': { hex: '#14b8a6', bgL: '#ccfbf1', bgD: 'rgba(20,184,166,0.15)', txL: '#0f766e', txD: '#2dd4bf', bdL: '#5eead4', bdD: 'rgba(20,184,166,0.35)' },
+  'خجالت':      { hex: '#ec4899', bgL: '#fce7f3', bgD: 'rgba(236,72,153,0.15)', txL: '#9d174d', txD: '#f472b6', bdL: '#f9a8d4', bdD: 'rgba(236,72,153,0.35)' },
+  'شادی':       { hex: '#22c55e', bgL: '#dcfce7', bgD: 'rgba(34,197,94,0.15)',   txL: '#15803d', txD: '#4ade80', bdL: '#86efac', bdD: 'rgba(34,197,94,0.35)'  },
+  'ناامیدی':    { hex: '#6b7280', bgL: '#f3f4f6', bgD: 'rgba(107,114,128,0.15)',txL: '#374151', txD: '#9ca3af', bdL: '#d1d5db', bdD: 'rgba(107,114,128,0.35)' },
+  'حسادت':      { hex: '#84cc16', bgL: '#f7fee7', bgD: 'rgba(132,204,22,0.15)',  txL: '#3f6212', txD: '#a3e635', bdL: '#bef264', bdD: 'rgba(132,204,22,0.35)' },
+  'دلتنگی':     { hex: '#a78bfa', bgL: '#ede9fe', bgD: 'rgba(167,139,250,0.15)', txL: '#5b21b6', txD: '#c4b5fd', bdL: '#ddd6fe', bdD: 'rgba(167,139,250,0.35)'},
+  'تنهایی':     { hex: '#6366f1', bgL: '#e0e7ff', bgD: 'rgba(99,102,241,0.15)',  txL: '#3730a3', txD: '#818cf8', bdL: '#a5b4fc', bdD: 'rgba(99,102,241,0.35)' },
+  'ناامنی':     { hex: '#f97316', bgL: '#ffedd5', bgD: 'rgba(249,115,22,0.15)',  txL: '#9a3412', txD: '#fb923c', bdL: '#fdba74', bdD: 'rgba(249,115,22,0.35)' },
 };
 
-const toPersianNum = (num) => {
-  const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-  return num.toString().replace(/\d/g, (x) => persianDigits[x]);
+const getEC = (name, dark) => {
+  const c = EMOTION_COLORS[name];
+  if (!c) return { bg:'rgba(99,102,241,0.15)', tx:'#818cf8', bd:'rgba(99,102,241,0.35)', hex:'#6366f1' };
+  return { bg: dark ? c.bgD : c.bgL, tx: dark ? c.txD : c.txL, bd: dark ? c.bdD : c.bdL, hex: c.hex };
 };
+
+const DEFAULT_EMOTIONS = ['اضطراب','غم','خشم','ترس','عذاب وجدان','خجالت','شادی','ناامیدی','دلتنگی','تنهایی','حسادت','ناامنی'];
+
+const COGNITIVE_ERRORS = [
+  { id:1,  name:'ذهن خوانی',                   desc:'فرض می‌گذارید که می‌دانید آدم‌ها چه فکر می‌کنند، بی‌آنکه شواهد کافی در مورد افکارشان داشته باشید.',  ex:'او فکر می‌کند من یک بازنده‌ام.' },
+  { id:2,  name:'پیش گویی',                     desc:'آینده را پیش بینی می‌کنید. پیش بینی می‌کنید که اوضاع بدتر خواهد شد یا خطری در پیش است.',           ex:'در امتحان قبول نخواهم شد. یا: این شغل را به دست نخواهم آورد.' },
+  { id:3,  name:'فاجعه سازی',                   desc:'بر این باورید که آنچه اتفاق افتاده آنچنان دردناک و غیرقابل تحمل خواهد بود که شما نمی‌توانید آن را تحمل کنید.',  ex:'اگر در امتحان رد شوم، وحشتناک است.' },
+  { id:4,  name:'برچسب زدن',                    desc:'یک ویژگی منفی خیلی کلی را به خود و دیگران نسبت می‌دهید.',                                              ex:'من دوست داشتنی نیستم. یا: او بی‌لیاقت است.' },
+  { id:5,  name:'دست کم گرفتن جنبه‌های مثبت',  desc:'مدعی هستید که دستاوردهای مثبت شما یا دیگران ناچیز و جزئی هستند.',                                    ex:'این وظیفه زن خانه است. یا: این موفقیت‌ها مهم نیستند، خیلی آسان به دست آمدند.' },
+  { id:6,  name:'فیلتر منفی',                   desc:'تقریباً منحصراً بر جنبه‌های منفی متمرکز می‌شوید و به ندرت به جنبه‌های مثبت توجه می‌کنید.',             ex:'اگر گاهی به یاد بیازید متوجه می‌شوید که چه تعداد آدم‌هایی مرا دوست ندارند.' },
+  { id:7,  name:'تعمیم افراطی',                 desc:'صرفاً براساس یک رویداد خاص، یک الگوی کلی منفی را استنباط می‌کنید.',                                  ex:'این اتفاق همیشه برای من پیش می‌آید. انگار من خیلی جاها شکست می‌خورم.' },
+  { id:8,  name:'تفکر دو قطبی',                 desc:'آدم‌ها یا اتفاق‌ها را به صورت همه یا هیچ می‌بینند.',                                                    ex:'همه مرا کنار گذاشته‌اند. یا: وقت تلف کردن بود.' },
+  { id:9,  name:'بایدها',                        desc:'رویدادها را بر مبنای این‌که چطور باید بودند تفسیر می‌کنید، نه بر مبنای آنکه واقعاً چطور هستند.',      ex:'باید خوب عمل کنم، و اگر خوب عمل نکنم یعنی شکست خورده‌ام.' },
+  { id:10, name:'شخصی سازی',                    desc:'به خاطر اتفاقات ناخوشایند منفی، تقصیر زیادی را به صورت غیرمنصفانه به خود نسبت می‌دهید.',              ex:'ازدواجم به بن بست رسید، چون من شکست خوردم.' },
+  { id:11, name:'مقصر دانستن',                  desc:'فرد دیگری را منبع اصلی احساسات منفی‌تان می‌دانید و مسئولیت تغییر خودتان را نمی‌پذیرید.',              ex:'تقصیر اوست که من الان این گونه احساس می‌کنم.' },
+  { id:12, name:'مقایسه‌های غیرمنصفانه',        desc:'اتفاق‌ها را براساس استانداردهایی تفسیر می‌کنید که واقع‌بینانه نیستند.',                                 ex:'او در مقایسه با من موفق‌تر است. یا: دیگران بهتر از من امتحان دادند.' },
+  { id:13, name:'همیشه پشیمان بودن',            desc:'تمرکز ذهنی با این‌که از این‌ها عمل کنم بهتر از آن‌ها می‌توانستم عمل کنم، به جای توجه به کارهایی که الان می‌توانم بهتر انجام بدهم.', ex:'اگر تلاش کرده بودم می‌توانستم شغل بهتری داشته باشم.' },
+  { id:14, name:'چه می‌شود اگر؟',               desc:'یک سلسله سؤالات «چه می‌شود اگر؟» می‌پرسید و از پاسخی که به خود می‌دهید هرگز راضی نیستید.',          ex:'درست، ولی اگر مضطرب شوم چه؟ یا: اگر نتوانم درست نفس بکشم چه؟' },
+  { id:15, name:'استدلال هیجانی',               desc:'اجازه می‌دهید که احساساتتان، تفسیرتان از واقعیت را هدایت کنند.',                                        ex:'احساس افسردگی می‌کنم، و این یعنی ازدواجم به بن بست خورده است.' },
+  { id:16, name:'ناتوانی در عدم تأیید شواهد',  desc:'همه مدارک یا شواهد بر علیه افکار منفی‌تان را رد می‌کنید. در نتیجه افکارتان قابل رد کردن نیستند.',     ex:'موضوع واقعاً این نیست، مشکلات عمیق‌تر از این حرف‌ها هستند.' },
+  { id:17, name:'برخورد قضاوتی',               desc:'خودتان، دیگران و اتفاق‌ها را به جای توصیف، پذیرش یا درک، به صورت سیاه و سفید ارزیابی می‌کنید.',      ex:'در دانشگاه خوب درس نخواندم. یا: ببین چقدر موفق است، من نیستم.' },
+];
+
+const NOTE_COLORS = ['#f59e0b','#22c55e','#3b82f6','#ec4899','#a78bfa','#f97316'];
+
+const loadScript = src => new Promise((res, rej) => {
+  if (document.querySelector(`script[src="${src}"]`)) return res();
+  const s = document.createElement('script');
+  s.src = src; s.onload = res; s.onerror = () => rej(new Error(src));
+  document.head.appendChild(s);
+});
+
+const toPersianNum = n => n.toString().replace(/\d/g, x => '۰۱۲۳۴۵۶۷۸۹'[x]);
 
 const getLocalISOTime = () => {
   const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now - offset).toISOString().slice(0, 16);
+  return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
+
+// ─────────────────────────── INITIAL DATA ───────────────────────────
 
 const initialLogs = [
   {
-    id: '1',
-    date: '۲۵ مهر ۱۴۰۲ - ۱۸:۳۰',
-    situation: 'در جلسه با مدیر پروژه احساس کردم ایده‌ام را به خوبی بیان نکردم و همه متوجه استرس من شدند.',
-    emotions: [{ name: 'اضطراب', intensity: 80 }],
-    thoughts: [{ text: 'من همیشه گند میزنم', belief: 90 }, { text: 'دیگر به من پروژه نمیدهند', belief: 70 }, { text: 'بقیه از من بهترند', belief: 60 }],
-    shameLevel: 45
+    id:'1', date:'۲۵ مهر ۱۴۰۲ - ۱۸:۳۰',
+    situation:'در جلسه با مدیر پروژه احساس کردم ایده‌ام را به خوبی بیان نکردم و همه متوجه استرس من شدند.',
+    emotions:[{name:'اضطراب',intensity:80}],
+    thoughts:[{text:'من همیشه گند میزنم',belief:90},{text:'دیگر به من پروژه نمیدهند',belief:70}],
+    hasShame:true, shameLevel:45
   },
   {
-    id: '2',
-    date: '۲۴ مهر ۱۴۰۲ - ۱۰:۱۵',
-    situation: 'پیام دوستم را دیر جواب دادم و حس کردم او فکر می‌کند برایش ارزش قائل نیستم.',
-    emotions: [{ name: 'عذاب وجدان', intensity: 70 }],
-    thoughts: [{ text: 'من دوست بدی هستم', belief: 80 }, { text: 'او دیگر با من حرف نمیزند', belief: 50 }],
-    shameLevel: 32
+    id:'2', date:'۲۴ مهر ۱۴۰۲ - ۱۰:۱۵',
+    situation:'پیام دوستم را دیر جواب دادم و حس کردم او فکر می‌کند برایش ارزش قائل نیستم.',
+    emotions:[{name:'عذاب وجدان',intensity:70}],
+    thoughts:[{text:'من دوست بدی هستم',belief:80}],
+    hasShame:true, shameLevel:32
   },
   {
-    id: '3',
-    date: '۲۲ مهر ۱۴۰۲ - ۲۱:۰۰',
-    situation: 'در مهمانی خانوادگی درباره موضوعی اظهار نظر کردم که اشتباه بود و همه خندیدند.',
-    emotions: [{ name: 'خجالت', intensity: 90 }],
-    thoughts: [{ text: 'من احمقم', belief: 100 }, { text: 'همه فکر میکنند من بی سوادم', belief: 85 }],
-    shameLevel: 85
+    id:'3', date:'۲۲ مهر ۱۴۰۲ - ۲۱:۰۰',
+    situation:'در مهمانی خانوادگی درباره موضوعی اظهار نظر کردم که اشتباه بود و همه خندیدند.',
+    emotions:[{name:'خجالت',intensity:90}],
+    thoughts:[{text:'من احمقم',belief:100},{text:'همه فکر میکنند من بی سوادم',belief:85}],
+    hasShame:false, shameLevel:null
   }
 ];
 
-const DEFAULT_EMOTIONS = ['غم', 'خشم', 'ترس', 'اضطراب'];
+// ─────────────────────────── MICRO COMPONENTS ───────────────────────────
 
-const CustomSlider = ({ value, onChange, label }) => {
+const SaveAnimation = ({ show }) => {
+  if (!show) return null;
   return (
-    <div className="w-full mb-4">
-      <div className="flex justify-between text-xs text-indigo-600 dark:text-indigo-400 font-bold mb-2 px-1 transition-colors">
-        <span>{label}</span>
-        <span>{toPersianNum(value)}%</span>
-      </div>
-      <div className="relative w-full h-6 bg-slate-200 dark:bg-zinc-800 rounded-full flex items-center overflow-visible transition-colors" dir="rtl">
-        {/* Filled Track anchored to the right */}
-        <div 
-          className="absolute right-0 h-full bg-indigo-500 rounded-full pointer-events-none transition-all duration-150"
-          style={{ width: `${value}%` }}
-        ></div>
-        
-        {/* Native Input: dir="rtl" makes dragging LEFT increase the value */}
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
-          className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0"
-          dir="rtl"
-        />
-
-        {/* Visual Thumb correctly positioned */}
-        <div 
-          className="absolute h-6 w-6 bg-white dark:bg-zinc-100 border-[3px] border-indigo-500 rounded-full pointer-events-none shadow-md transition-all duration-150 z-0 top-0"
-          style={{ right: `calc(${value}% - 12px)` }}
-        ></div>
+    <div style={{position:'fixed',inset:0,display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,pointerEvents:'none'}}>
+      <div style={{position:'relative'}}>
+        <div style={{position:'absolute',inset:0,borderRadius:'50%',background:'rgba(34,197,94,0.4)',animation:'pulse-ring 0.8s ease-out 0.2s both'}}/>
+        <div style={{
+          background:'#22c55e',borderRadius:'50%',width:80,height:80,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          animation:'popIn 0.4s cubic-bezier(.34,1.56,.64,1) forwards',
+          boxShadow:'0 0 40px rgba(34,197,94,0.5)'
+        }}>
+          <Check size={38} color="white" strokeWidth={3}/>
+        </div>
       </div>
     </div>
   );
 };
 
-const DashboardView = ({ logs, onAddClick, onExport, isDark, toggleTheme, isExporting }) => {
-  const logsWithShame = logs.filter(l => l.shameLevel !== null && l.shameLevel !== undefined);
-  const avgShame = logsWithShame.length === 0 ? 0 : Math.round(logsWithShame.reduce((acc, log) => acc + log.shameLevel, 0) / logsWithShame.length);
+const Toast = ({ msg }) => {
+  if (!msg) return null;
+  return (
+    <div style={{
+      position:'fixed',bottom:90,left:'50%',
+      transform:'translateX(-50%)',
+      background:'#18181b',color:'#f4f4f5',
+      padding:'10px 20px',borderRadius:12,zIndex:9998,
+      fontSize:13,fontWeight:700,
+      animation:'slideUpFade 2.5s ease-in-out forwards',
+      boxShadow:'0 4px 20px rgba(0,0,0,0.5)',
+      whiteSpace:'nowrap',border:'1px solid #3f3f46'
+    }}>{msg}</div>
+  );
+};
+
+const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
+  <div className="w-full mb-4">
+    <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
+      <span>{label}</span><span>{toPersianNum(value)}%</span>
+    </div>
+    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="rtl"
+      style={{background:'rgba(128,128,128,0.15)'}}>
+      <div className="absolute right-0 h-full rounded-full pointer-events-none"
+        style={{width:`${value}%`,background:color,transition:'width .15s'}}/>
+      <input type="range" min="0" max="100" value={value}
+        onChange={e=>onChange(parseInt(e.target.value))}
+        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0" dir="rtl"/>
+      <div className="absolute h-6 w-6 rounded-full pointer-events-none z-0 top-0"
+        style={{right:`calc(${value}%-12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .15s'}}/>
+    </div>
+  </div>
+);
+
+// ─────────────────────────── FAB MENU ───────────────────────────
+
+const FABMenu = ({ onAddLog, onAddNote, isDark }) => {
+  const [open, setOpen] = useState(false);
+  const items = [
+    { icon: <FileText size={18}/>, label:'یادداشت جلسه',  action: onAddNote, color:'#ec4899' },
+    { icon: <Brain size={18}/>,    label:'ثبت افکار',     action: onAddLog,  color:'#6366f1' },
+  ];
+  return (
+    <div style={{position:'fixed',bottom:80,left:20,zIndex:100}} className="md:bottom-10 md:left-10">
+      {open && (
+        <div style={{position:'absolute',bottom:68,left:0,display:'flex',flexDirection:'column',gap:10,alignItems:'flex-start'}}>
+          {items.map((item,i)=>(
+            <button key={i} onClick={()=>{setOpen(false);item.action();}}
+              style={{
+                display:'flex',alignItems:'center',gap:10,
+                background:item.color,color:'white',
+                border:'none',borderRadius:14,
+                padding:'10px 16px',
+                fontSize:13,fontWeight:700,cursor:'pointer',
+                boxShadow:`0 4px 20px ${item.color}60`,
+                animation:`fabExpand .25s cubic-bezier(.34,1.56,.64,1) ${i*0.07}s both`,
+                whiteSpace:'nowrap'
+              }}>
+              {item.icon}{item.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button onClick={()=>setOpen(!open)} style={{
+        width:56,height:56,borderRadius:18,
+        background:'#6366f1',color:'white',border:'none',
+        display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',
+        boxShadow:'0 0 24px rgba(99,102,241,0.5)',
+        transition:'all .25s cubic-bezier(.34,1.56,.64,1)',
+        transform: open ? 'rotate(45deg) scale(1.05)' : 'rotate(0deg) scale(1)',
+      }}>
+        <Plus size={28} strokeWidth={2.5}/>
+      </button>
+    </div>
+  );
+};
+
+// ─────────────────────────── COGNITIVE ERRORS VIEW ───────────────────────────
+
+const CognitiveErrorsView = ({ onClose, isDark }) => {
+  const bg  = isDark ? '#09090b' : '#f8fafc';
+  const card = isDark ? '#18181b' : '#ffffff';
+  const bd  = isDark ? '#27272a' : '#e2e8f0';
+  const tx  = isDark ? '#f4f4f5' : '#1e293b';
+  const sub = isDark ? '#a1a1aa' : '#475569';
+  const ex  = isDark ? '#d4d4d8' : '#374151';
+  const exBg= isDark ? '#27272a' : '#f8fafc';
 
   return (
-    <div className="min-h-screen pb-24 text-slate-800 dark:text-zinc-100 transition-colors duration-300">
-      {/* Header */}
-      <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-10 border-b border-slate-200 dark:border-zinc-800 transition-colors">
-        <div className="flex gap-2 items-center">
-          <button onClick={toggleTheme} className="p-2 text-slate-400 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 bg-slate-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg transition-all">
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button 
-            onClick={onExport} 
-            disabled={isExporting}
-            className="flex items-center text-indigo-600 dark:text-indigo-400 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-zinc-800 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isExporting ? <Loader2 size={16} className="ml-2 animate-spin" /> : <Download size={16} className="ml-2" />}
-            {isExporting ? 'در حال تولید...' : 'خروجی PDF'}
+    <div style={{position:'fixed',inset:0,zIndex:200,overflowY:'auto',background:bg,animation:'slideInUp .3s ease-out'}}>
+      <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بازگشت</button>
+        <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
+          <BookOpen size={20} color="#6366f1"/> خطاهای شناختی
+        </h1>
+        <div style={{width:60}}/>
+      </div>
+      <div style={{padding:'24px 20px',maxWidth:640,margin:'0 auto'}}>
+        <p style={{color:sub,fontSize:13,textAlign:'center',marginBottom:20,lineHeight:1.7}}>
+          این فهرست خطاهای رایج در تفکر را می‌شناسد. یادتان باشد همه انسان‌ها گاهی این خطاها را دارند.
+        </p>
+        {COGNITIVE_ERRORS.map((err,i)=>(
+          <div key={err.id} style={{background:card,border:`1px solid ${bd}`,borderRadius:16,padding:'18px 20px',marginBottom:10,animation:`fadeSlideIn .3s ease-out ${i*0.035}s both`}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+              <span style={{background:'#6366f1',color:'white',borderRadius:8,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,flexShrink:0}}>
+                {toPersianNum(err.id)}
+              </span>
+              <h3 style={{color:tx,fontWeight:900,fontSize:15,margin:0}}>{err.name}</h3>
+            </div>
+            <p style={{color:sub,fontSize:13,lineHeight:1.8,marginBottom:10}}>{err.desc}</p>
+            <div style={{background:exBg,border:`1px solid ${bd}`,borderRadius:10,padding:'10px 14px'}}>
+              <span style={{color:'#6366f1',fontSize:11,fontWeight:700}}>مثال: </span>
+              <span style={{color:ex,fontSize:13,fontStyle:'italic'}}>«{err.ex}»</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────── SESSION NOTES VIEW ───────────────────────────
+
+const SessionNotesView = ({ notes, onSave, onClose, isDark }) => {
+  const [q, setQ] = useState('');
+  const [a, setA] = useState('');
+  const [color, setColor] = useState(NOTE_COLORS[0]);
+  const [adding, setAdding] = useState(false);
+
+  const bg   = isDark ? '#09090b' : '#f8fafc';
+  const card = isDark ? '#18181b' : '#ffffff';
+  const bd   = isDark ? '#27272a' : '#e2e8f0';
+  const tx   = isDark ? '#f4f4f5' : '#1e293b';
+  const sub  = isDark ? '#a1a1aa' : '#475569';
+  const inp  = isDark ? '#09090b' : '#f8fafc';
+
+  const iStyle = {
+    width:'100%',boxSizing:'border-box',
+    background:inp,border:`1px solid ${bd}`,borderRadius:12,
+    padding:'12px 14px',color:tx,fontSize:13,
+    fontFamily:'Vazirmatn,sans-serif',resize:'none',outline:'none'
+  };
+
+  const handleSave = () => {
+    if (!q.trim() || !a.trim()) return;
+    onSave({
+      id:Date.now().toString(),
+      date:new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric'}).format(new Date()),
+      question:q.trim(), answer:a.trim(), color
+    });
+    setQ(''); setA(''); setAdding(false);
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:200,overflowY:'auto',background:bg,animation:'slideInUp .3s ease-out'}}>
+      <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بازگشت</button>
+        <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
+          <MessageSquare size={20} color="#ec4899"/> یادداشت جلسه
+        </h1>
+        <button onClick={()=>setAdding(true)} style={{background:'#ec4899',color:'white',border:'none',borderRadius:10,padding:'7px 14px',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+          + جدید
+        </button>
+      </div>
+
+      <div style={{padding:'20px',maxWidth:640,margin:'0 auto'}}>
+        {adding && (
+          <div style={{background:card,border:`2px solid #ec4899`,borderRadius:18,padding:20,marginBottom:20,animation:'popIn .25s ease-out'}}>
+            <h3 style={{color:tx,fontWeight:900,marginBottom:14,fontSize:15}}>یادداشت جدید 📝</h3>
+            <div style={{marginBottom:12}}>
+              <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>سوال یا تکلیف تراپیست</label>
+              <textarea value={q} onChange={e=>setQ(e.target.value)} rows={3} placeholder="تراپیست از شما چه خواست؟" style={iStyle}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{color:'#ec4899',fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>جواب شما (بدون کمک هوش مصنوعی 🧠)</label>
+              <textarea value={a} onChange={e=>setA(e.target.value)} rows={5} placeholder="جواب خودتان را اینجا بنویسید..." style={iStyle}/>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:8}}>رنگ برچسب</label>
+              <div style={{display:'flex',gap:8}}>
+                {NOTE_COLORS.map(c=>(
+                  <button key={c} onClick={()=>setColor(c)} style={{
+                    width:28,height:28,borderRadius:'50%',background:c,border:'none',cursor:'pointer',
+                    outline:color===c?`3px solid white`:'none',
+                    boxShadow:color===c?`0 0 0 5px ${c}50`:'none',
+                    transform:color===c?'scale(1.2)':'scale(1)',
+                    transition:'all .2s'
+                  }}/>
+                ))}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setAdding(false)} style={{flex:1,padding:'11px',borderRadius:12,background:isDark?'#27272a':'#f1f5f9',color:sub,border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>لغو</button>
+              <button onClick={handleSave} style={{flex:2,padding:'11px',borderRadius:12,background:'#ec4899',color:'white',border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>ذخیره یادداشت ✓</button>
+            </div>
+          </div>
+        )}
+
+        {notes.length===0 && !adding ? (
+          <div style={{textAlign:'center',padding:'60px 24px',color:sub}}>
+            <MessageSquare size={48} style={{margin:'0 auto 14px',opacity:.3,display:'block'}}/>
+            <p style={{fontWeight:700,marginBottom:6}}>یادداشتی ندارید</p>
+            <p style={{fontSize:13}}>از دکمه «+ جدید» استفاده کنید</p>
+          </div>
+        ) : notes.map((note,i)=>(
+          <div key={note.id} style={{
+            background:card,border:`1px solid ${bd}`,borderRadius:16,
+            padding:20,marginBottom:12,borderRight:`4px solid ${note.color}`,
+            animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
+          }}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+              <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
+            </div>
+            <div style={{background:note.color+'15',borderRadius:10,padding:'10px 14px',marginBottom:10,border:`1px solid ${note.color}35`}}>
+              <span style={{color:note.color,fontSize:11,fontWeight:700}}>سوال تراپیست: </span>
+              <p style={{color:tx,fontSize:13,margin:'4px 0 0',lineHeight:1.7}}>{note.question}</p>
+            </div>
+            <p style={{color:sub,fontSize:13,lineHeight:1.8}}>{note.answer}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────── ADD LOG VIEW ───────────────────────────
+
+const AddLogView = ({ onSave, onCancel, isDark }) => {
+  const [dateTime, setDateTime] = useState('');
+  const [situation, setSituation] = useState('');
+  const [selectedEmotions, setSelectedEmotions] = useState([]);
+  const [customInput, setCustomInput] = useState('');
+  const [isAddingEmo, setIsAddingEmo] = useState(false);
+  const [thoughts, setThoughts] = useState([{text:'',belief:50}]);
+  const [hasShame, setHasShame] = useState(true);
+  const [shameLevel, setShameLevel] = useState(50);
+
+  const bg   = isDark ? '#09090b' : '#f8fafc';
+  const card = isDark ? '#18181b' : '#ffffff';
+  const bd   = isDark ? '#27272a' : '#e2e8f0';
+  const tx   = isDark ? '#f4f4f5' : '#1e293b';
+  const sub  = isDark ? '#a1a1aa' : '#475569';
+
+  const toggleEmo = name => {
+    const exists = selectedEmotions.find(e=>e.name===name);
+    setSelectedEmotions(exists
+      ? selectedEmotions.filter(e=>e.name!==name)
+      : [...selectedEmotions,{name,intensity:50}]
+    );
+  };
+
+  const addCustomEmo = () => {
+    const v = customInput.trim();
+    if (v && !selectedEmotions.find(e=>e.name===v)) {
+      setSelectedEmotions([...selectedEmotions,{name:v,intensity:50}]);
+    }
+    setCustomInput(''); setIsAddingEmo(false);
+  };
+
+  const handleSave = () => {
+    if (!situation.trim()) return alert('لطفا موقعیت را وارد کنید');
+    const d = dateTime ? new Date(dateTime) : new Date();
+    onSave({
+      id:Date.now().toString(),
+      date:new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d),
+      situation,
+      emotions:selectedEmotions,
+      thoughts:thoughts.filter(t=>t.text.trim()!==''),
+      hasShame,
+      shameLevel:hasShame?shameLevel:null
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)'}}>
+      <div style={{background:card,minHeight:'100vh',width:'100%',maxWidth:520,margin:'0 auto',display:'flex',flexDirection:'column'}}>
+        {/* Header */}
+        <div style={{position:'sticky',top:0,zIndex:10,background:card,borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onCancel} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>لغو</button>
+          <h1 style={{color:tx,fontWeight:900,fontSize:17,display:'flex',alignItems:'center',gap:8}}>
+            ثبت فکر جدید <Brain size={18} color="#6366f1"/>
+          </h1>
+          <div style={{width:40}}/>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:'24px 20px',flex:1}}>
+          {/* Date */}
+          <div style={{marginBottom:24}}>
+            <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۱. تاریخ و ساعت</h3>
+            <div style={{display:'flex',gap:8}}>
+              <input type="datetime-local" value={dateTime} onChange={e=>setDateTime(e.target.value)}
+                style={{flex:1,background:bg,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none'}} dir="ltr"/>
+              <button onClick={()=>setDateTime(getLocalISOTime())}
+                style={{flexShrink:0,background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',borderRadius:12,padding:'11px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                همین الان
+              </button>
+            </div>
+          </div>
+
+          {/* Situation */}
+          <div style={{marginBottom:24}}>
+            <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۲. موقعیت</h3>
+            <textarea value={situation} onChange={e=>setSituation(e.target.value)}
+              placeholder="چه اتفاقی افتاد؟ کجا بودید؟"
+              rows={4}
+              style={{width:'100%',boxSizing:'border-box',background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:'12px 14px',color:tx,fontSize:13,fontFamily:'Vazirmatn,sans-serif',resize:'none',outline:'none'}}
+            />
+          </div>
+
+          {/* Emotions */}
+          <div style={{marginBottom:24}}>
+            <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:10}}>۳. هیجان‌ها</h3>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:14}}>
+              {DEFAULT_EMOTIONS.map(emo=>{
+                const sel = selectedEmotions.some(e=>e.name===emo);
+                const ec = getEC(emo, isDark);
+                return (
+                  <button key={emo} onClick={()=>toggleEmo(emo)} style={{
+                    padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,
+                    border:`1.5px solid ${sel?ec.bd:isDark?'#3f3f46':'#e2e8f0'}`,
+                    background:sel?ec.bg:isDark?'#27272a':'#f8fafc',
+                    color:sel?ec.tx:isDark?'#71717a':'#64748b',
+                    cursor:'pointer',
+                    transition:'all .2s cubic-bezier(.34,1.56,.64,1)',
+                    transform:sel?'scale(1.05)':'scale(1)',
+                    boxShadow:sel?`0 2px 10px ${ec.hex}40`:''
+                  }}>{emo}</button>
+                );
+              })}
+              {isAddingEmo ? (
+                <div style={{display:'flex',gap:6}}>
+                  <input autoFocus value={customInput} onChange={e=>setCustomInput(e.target.value)}
+                    onKeyDown={e=>e.key==='Enter'&&addCustomEmo()}
+                    placeholder="هیجان دیگر..."
+                    style={{background:bg,border:`1px solid ${bd}`,borderRadius:20,padding:'6px 12px',color:tx,fontSize:12,outline:'none',width:100}}
+                  />
+                  <button onClick={addCustomEmo} style={{background:'#6366f1',color:'white',border:'none',borderRadius:20,padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>✓</button>
+                </div>
+              ) : (
+                <button onClick={()=>setIsAddingEmo(true)} style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:700,border:`1.5px dashed ${isDark?'#3f3f46':'#cbd5e1'}`,background:'none',color:'#6366f1',cursor:'pointer'}}>
+                  + دیگر
+                </button>
+              )}
+            </div>
+            <div>
+              {selectedEmotions.map(emo=>{
+                const ec = getEC(emo.name, isDark);
+                return (
+                  <CustomSlider key={emo.name} label={emo.name} value={emo.intensity} color={ec.hex}
+                    onChange={v=>setSelectedEmotions(selectedEmotions.map(e=>e.name===emo.name?{...e,intensity:v}:e))}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Thoughts */}
+          <div style={{marginBottom:24}}>
+            <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:10}}>۴. افکار</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:10}}>
+              {thoughts.map((t,i)=>(
+                <div key={i} style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:14,position:'relative'}}>
+                  {thoughts.length>1&&(
+                    <button onClick={()=>setThoughts(thoughts.filter((_,j)=>j!==i))}
+                      style={{position:'absolute',top:10,left:10,background:'none',border:'none',cursor:'pointer',color:isDark?'#52525b':'#94a3b8'}}>
+                      <X size={14}/>
+                    </button>
+                  )}
+                  <textarea value={t.text} onChange={e=>{const n=[...thoughts];n[i].text=e.target.value;setThoughts(n);}}
+                    placeholder="چه فکری از سرت گذشت؟"
+                    rows={2}
+                    style={{width:'100%',background:'transparent',border:'none',outline:'none',color:tx,fontSize:13,fontFamily:'Vazirmatn,sans-serif',resize:'none',marginBottom:10}}
+                  />
+                  <CustomSlider label="میزان باور" value={t.belief}
+                    onChange={v=>{const n=[...thoughts];n[i].belief=v;setThoughts(n);}}
+                  />
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setThoughts([...thoughts,{text:'',belief:50}])}
+              style={{width:'100%',padding:'11px',border:`2px dashed ${isDark?'#3f3f46':'#cbd5e1'}`,borderRadius:12,background:'none',color:'#6366f1',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+              + افزودن فکر دیگر
+            </button>
+          </div>
+
+          {/* Shame */}
+          <div style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:16,marginBottom:24}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:hasShame?14:0}}>
+              <h3 style={{color:sub,fontSize:12,fontWeight:700}}>۵. میزان شرم</h3>
+              <button onClick={()=>setHasShame(!hasShame)} style={{
+                display:'flex',alignItems:'center',gap:6,
+                background:hasShame?(isDark?'rgba(99,102,241,0.2)':'#e0e7ff'):(isDark?'#27272a':'#f1f5f9'),
+                color:hasShame?'#6366f1':sub,
+                border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer',
+                transition:'all .2s'
+              }}>
+                {hasShame?<ToggleRight size={16}/>:<ToggleLeft size={16}/>}
+                {hasShame?'ثبت می‌شود':'بدون شرم'}
+              </button>
+            </div>
+            <div style={{maxHeight:hasShame?100:0,overflow:'hidden',transition:'max-height .3s ease'}}>
+              <p style={{color:sub,fontSize:12,marginBottom:10}}>چقدر احساس شرم یا بی‌ارزشی دارید؟</p>
+              <CustomSlider label="شرم" value={shameLevel} onChange={setShameLevel} color="#8b5cf6"/>
+            </div>
+            {!hasShame&&<p style={{color:isDark?'#52525b':'#94a3b8',fontSize:11,fontWeight:600,textAlign:'center',marginTop:4}}>احساس شرم ثبت نمی‌شود</p>}
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div style={{padding:'14px 20px',borderTop:`1px solid ${bd}`,background:card}}>
+          <button onClick={handleSave} style={{
+            width:'100%',background:'#6366f1',color:'white',
+            border:'none',borderRadius:14,padding:'14px',
+            fontSize:15,fontWeight:900,cursor:'pointer',
+            boxShadow:'0 0 20px rgba(99,102,241,0.4)',
+            transition:'all .2s'
+          }}>
+            ثبت لاگ ✓
           </button>
         </div>
-        <h1 className="text-slate-800 dark:text-zinc-100 font-bold text-lg tracking-wide flex items-center gap-2 transition-colors">
-          NAT Tracker <Brain size={20} className="text-indigo-500 dark:text-indigo-400" />
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────── DASHBOARD VIEW ───────────────────────────
+
+const DashboardView = ({ logs, sessionNotes, onExport, isDark, toggleTheme, isExporting, onShowCognitive, onShowNotes }) => {
+  const logsWithShame = logs.filter(l=>l.hasShame&&l.shameLevel!=null);
+  const avgShame = logsWithShame.length===0?0:Math.round(logsWithShame.reduce((a,l)=>a+l.shameLevel,0)/logsWithShame.length);
+
+  const bg   = isDark ? '#09090b' : '#f8fafc';
+  const card = isDark ? '#18181b' : '#ffffff';
+  const bd   = isDark ? '#27272a' : '#e2e8f0';
+  const tx   = isDark ? '#f4f4f5' : '#1e293b';
+  const sub  = isDark ? '#71717a' : '#64748b';
+
+  return (
+    <div style={{minHeight:'100vh',paddingBottom:100,background:bg,transition:'background .3s'}}>
+      {/* Header */}
+      <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,0.9)':'rgba(248,250,252,0.9)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={toggleTheme} style={{padding:'8px',borderRadius:10,background:isDark?'#27272a':'#e2e8f0',border:'none',cursor:'pointer',display:'flex',alignItems:'center',color:isDark?'#a1a1aa':'#475569',transition:'all .2s'}}>
+            {isDark?<Sun size={17}/>:<Moon size={17}/>}
+          </button>
+          <button onClick={onExport} disabled={isExporting} style={{
+            display:'flex',alignItems:'center',gap:6,
+            background:'none',border:`1px solid ${bd}`,borderRadius:10,
+            padding:'8px 14px',color:'#6366f1',fontSize:13,fontWeight:700,cursor:'pointer'
+          }}>
+            {isExporting?<Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/>:<Download size={15}/>}
+            {isExporting?'در حال تولید...':'خروجی PDF'}
+          </button>
+        </div>
+        <h1 style={{color:tx,fontWeight:900,fontSize:17,display:'flex',alignItems:'center',gap:8}}>
+          NAT Tracker <Brain size={19} color="#6366f1"/>
         </h1>
       </div>
 
-      <div className="px-6 mt-6 max-w-screen-xl mx-auto">
+      <div style={{padding:'20px',maxWidth:900,margin:'0 auto'}}>
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-slate-200 dark:border-zinc-800 flex flex-col items-center justify-center shadow-lg shadow-black/5 dark:shadow-black/20 transition-colors">
-            <span className="text-slate-500 dark:text-zinc-400 text-xs mb-1">تعداد کل ثبت‌ها</span>
-            <span className="text-3xl font-black text-slate-800 dark:text-zinc-100">{toPersianNum(logs.length)}</span>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:24}}>
+          <div style={{background:card,border:`1px solid ${bd}`,borderRadius:20,padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.3)':'0 2px 12px rgba(0,0,0,0.06)'}}>
+            <span style={{color:sub,fontSize:12,marginBottom:4}}>تعداد ثبت‌ها</span>
+            <span style={{color:tx,fontSize:32,fontWeight:900}}>{toPersianNum(logs.length)}</span>
           </div>
-          <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl p-4 flex flex-col items-center justify-center border border-indigo-100 dark:border-indigo-500/20 shadow-lg shadow-indigo-900/5 dark:shadow-indigo-900/10 transition-colors">
-            <span className="text-indigo-600 dark:text-indigo-300 text-xs mb-1">میانگین شرم</span>
-            <span className="text-3xl font-black text-indigo-700 dark:text-indigo-400">٪ {toPersianNum(avgShame)}</span>
+          <div style={{background:isDark?'rgba(99,102,241,0.12)':'#eef2ff',border:`1px solid ${isDark?'rgba(99,102,241,0.25)':'#c7d2fe'}`,borderRadius:20,padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',boxShadow:'0 2px 12px rgba(99,102,241,0.1)'}}>
+            <span style={{color:'#6366f1',fontSize:12,marginBottom:4}}>میانگین شرم</span>
+            <span style={{color:'#6366f1',fontSize:32,fontWeight:900}}>{toPersianNum(avgShame)}٪</span>
           </div>
         </div>
 
-        <h2 className="text-xl font-black text-slate-800 dark:text-zinc-100 mb-4 transition-colors">ثبت‌های اخیر</h2>
+        {/* Session Notes quick preview */}
+        {sessionNotes.length>0&&(
+          <div style={{marginBottom:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <h2 style={{color:tx,fontWeight:900,fontSize:16}}>یادداشت‌های جلسه</h2>
+              <button onClick={onShowNotes} style={{color:'#ec4899',fontSize:13,fontWeight:700,background:'none',border:'none',cursor:'pointer'}}>همه →</button>
+            </div>
+            <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}}>
+              {sessionNotes.slice(0,3).map(note=>(
+                <div key={note.id} style={{
+                  flexShrink:0,width:200,background:card,
+                  border:`1px solid ${bd}`,borderRadius:14,padding:14,
+                  borderTop:`4px solid ${note.color}`
+                }}>
+                  <span style={{color:note.color,fontSize:11,fontWeight:700,display:'block',marginBottom:6}}>{note.date}</span>
+                  <p style={{color:tx,fontSize:12,fontWeight:600,marginBottom:6,lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{note.question}</p>
+                  <p style={{color:sub,fontSize:11,lineHeight:1.5,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{note.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* Log List Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {logs.map((log) => {
-            const topEmotion = log.emotions.length > 0 
-              ? log.emotions.reduce((prev, current) => (prev.intensity > current.intensity) ? prev : current)
+        <h2 style={{color:tx,fontWeight:900,fontSize:18,marginBottom:14}}>ثبت‌های اخیر</h2>
+
+        {/* Logs Grid */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
+          {logs.map((log,li)=>{
+            const topEmo = log.emotions.length>0
+              ? log.emotions.reduce((p,c)=>p.intensity>c.intensity?p:c)
               : null;
+            const ec = topEmo ? getEC(topEmo.name, isDark) : null;
 
             return (
-              <div key={log.id} className="bg-white dark:bg-zinc-900 rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 flex flex-col h-full hover:border-slate-300 dark:hover:border-zinc-700 hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/40 transition duration-300">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-slate-500 dark:text-zinc-500 text-xs font-medium flex items-center gap-1 transition-colors">
-                    <Clock size={12} /> {toPersianNum(log.date)}
+              <div key={log.id} style={{
+                background:card,border:`1px solid ${bd}`,borderRadius:20,padding:'18px',
+                display:'flex',flexDirection:'column',
+                transition:'all .25s',
+                animation:`fadeSlideIn .4s ease-out ${li*0.06}s both`,
+                boxShadow:isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.04)'
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow=isDark?'0 8px 30px rgba(0,0,0,0.35)':'0 8px 30px rgba(0,0,0,0.12)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow=isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.04)'}}
+              >
+                {/* Top row */}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <span style={{color:sub,fontSize:11,display:'flex',alignItems:'center',gap:4}}>
+                    <Clock size={11}/> {toPersianNum(log.date)}
                   </span>
-                  
-                  {log.shameLevel !== null && log.shameLevel !== undefined ? (
-                    <div className="bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold px-2.5 py-1 rounded-md border border-indigo-200 dark:border-indigo-500/20 transition-colors">
+                  {log.hasShame&&log.shameLevel!=null ? (
+                    <span style={{background:isDark?'rgba(99,102,241,0.15)':'#eef2ff',color:'#6366f1',fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:8}}>
                       شرم {toPersianNum(log.shameLevel)}٪
-                    </div>
+                    </span>
                   ) : (
-                    <div className="bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-xs font-bold px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700 transition-colors">
-                      بدون شرم
-                    </div>
+                    <span style={{background:isDark?'#27272a':'#f8fafc',color:sub,fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:8}}>بدون شرم</span>
                   )}
-
                 </div>
-                
-                <p className="text-slate-700 dark:text-zinc-300 text-sm leading-relaxed mb-4 font-medium transition-colors">
-                  {log.situation}
-                </p>
 
-                {/* Display Thoughts */}
-                {log.thoughts && log.thoughts.length > 0 && (
-                  <div className="mb-6 bg-slate-50 dark:bg-zinc-950/50 rounded-xl p-3 space-y-3 border border-slate-100 dark:border-zinc-800/50 transition-colors flex-grow">
-                    {log.thoughts.map((thought, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <ChevronRight size={14} className="mt-0.5 text-indigo-400 shrink-0" />
-                        <span className="text-slate-600 dark:text-zinc-300 text-xs flex-grow leading-relaxed font-medium transition-colors">
-                          {thought.text}
-                        </span>
-                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 px-2 py-0.5 rounded-md whitespace-nowrap transition-colors">
-                          باور: {toPersianNum(thought.belief)}٪
+                {/* Situation */}
+                <p style={{color:tx,fontSize:13,lineHeight:1.7,marginBottom:12,fontWeight:500}}>{log.situation}</p>
+
+                {/* Thoughts */}
+                {log.thoughts&&log.thoughts.length>0&&(
+                  <div style={{background:isDark?'rgba(0,0,0,0.2)':'#f8fafc',borderRadius:12,padding:'10px 12px',marginBottom:12,flex:1,border:`1px solid ${isDark?'#27272a':'#e2e8f0'}`}}>
+                    {log.thoughts.slice(0,2).map((th,i)=>(
+                      <div key={i} style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:i<Math.min(log.thoughts.length,2)-1?8:0}}>
+                        <ChevronRight size={13} color="#6366f1" style={{marginTop:2,flexShrink:0}}/>
+                        <span style={{color:isDark?'#d4d4d8':'#374151',fontSize:12,flex:1,lineHeight:1.6}}>{th.text}</span>
+                        <span style={{color:'#6366f1',fontSize:10,fontWeight:700,background:isDark?'rgba(99,102,241,0.15)':'#eef2ff',padding:'2px 6px',borderRadius:6,whiteSpace:'nowrap'}}>
+                          {toPersianNum(th.belief)}٪
                         </span>
                       </div>
                     ))}
+                    {log.thoughts.length>2&&<span style={{color:sub,fontSize:11,marginTop:6,display:'block'}}>+{toPersianNum(log.thoughts.length-2)} فکر دیگر</span>}
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2 items-center mt-auto border-t border-slate-100 dark:border-zinc-800 pt-4 transition-colors">
-                  {topEmotion && (
-                    <span className="border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-500/5 transition-colors">
-                      {topEmotion.name} {toPersianNum(topEmotion.intensity)}٪
+                {/* Emotion tag */}
+                {topEmo&&(
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,paddingTop:10,borderTop:`1px solid ${bd}`}}>
+                    <span style={{
+                      background:ec.bg,color:ec.tx,
+                      border:`1.5px solid ${ec.bd}`,
+                      fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20,
+                      display:'flex',alignItems:'center',gap:4
+                    }}>
+                      <span style={{width:7,height:7,borderRadius:'50%',background:ec.hex,flexShrink:0}}/>
+                      {topEmo.name} {toPersianNum(topEmo.intensity)}٪
                     </span>
-                  )}
-                  <span className="flex items-center text-slate-500 dark:text-zinc-400 text-[11px] font-medium bg-slate-50 dark:bg-zinc-800 px-3 py-1.5 rounded-full transition-colors">
-                    <Brain size={12} className="ml-1 text-slate-400 dark:text-zinc-500" />
-                    {toPersianNum(log.thoughts.length)} فکر 
-                  </span>
-                </div>
+                    <span style={{color:sub,fontSize:11,padding:'4px 10px',borderRadius:20,background:isDark?'#27272a':'#f1f5f9'}}>
+                      {toPersianNum(log.thoughts.length)} فکر
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* FAB */}
-      <button 
-        onClick={onAddClick}
-        className="fixed bottom-24 left-6 bg-indigo-600 text-white p-4 rounded-2xl shadow-[0_0_20px_rgba(79,70,229,0.4)] hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all z-20 md:left-10 md:bottom-10 md:p-5"
-      >
-        <Plus size={28} strokeWidth={2.5} />
-      </button>
-
-      {/* Bottom Nav (Mobile Only) */}
-      <div className="fixed bottom-0 w-full bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 px-6 py-3 flex justify-between items-center z-10 md:hidden transition-colors">
-        <button className="flex flex-col items-center text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300 transition">
-          <Settings size={20} className="mb-1" />
-          <span className="text-[10px] font-medium">Settings</span>
+      {/* Bottom Nav */}
+      <div style={{
+        position:'fixed',bottom:0,width:'100%',
+        background:isDark?'rgba(9,9,11,0.95)':'rgba(255,255,255,0.95)',
+        backdropFilter:'blur(12px)',
+        borderTop:`1px solid ${bd}`,
+        padding:'10px 20px 16px',
+        display:'flex',justifyContent:'space-around',alignItems:'center',
+        zIndex:50
+      }}>
+        <button onClick={onShowCognitive} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
+          <BookOpen size={21}/>
+          <span style={{fontSize:10,fontWeight:600}}>خطاهای شناختی</span>
         </button>
-        <button className="flex flex-col items-center text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300 transition">
-          <FolderClosed size={20} className="mb-1" />
-          <span className="text-[10px] font-medium">Resources</span>
+        <button onClick={toggleTheme} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
+          {isDark?<Sun size={21}/>:<Moon size={21}/>}
+          <span style={{fontSize:10,fontWeight:600}}>{isDark?'روشن':'تاریک'}</span>
         </button>
-        <button className="flex flex-col items-center text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300 transition">
-          <BarChart2 size={20} className="mb-1" />
-          <span className="text-[10px] font-medium">Analytics</span>
-        </button>
-        <button className="flex flex-col items-center text-indigo-600 dark:text-indigo-400">
-          <div className="bg-indigo-50 dark:bg-indigo-500/10 p-1.5 rounded-xl mb-1 transition-colors">
-            <LayoutGrid size={20} />
+        <div style={{width:60}}/>
+        <button style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:'#6366f1'}}>
+          <div style={{background:'rgba(99,102,241,0.12)',padding:'6px',borderRadius:10}}>
+            <LayoutGrid size={21}/>
           </div>
-          <span className="text-[10px] font-bold">Dashboard</span>
+          <span style={{fontSize:10,fontWeight:700}}>داشبورد</span>
+        </button>
+        <button onClick={onShowNotes} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
+          <MessageSquare size={21}/>
+          <span style={{fontSize:10,fontWeight:600}}>جلسه</span>
         </button>
       </div>
     </div>
   );
 };
 
-const AddLogView = ({ onSave, onCancel }) => {
-  const [dateTime, setDateTime] = useState('');
-  const [situation, setSituation] = useState('');
-  const [selectedEmotions, setSelectedEmotions] = useState([]);
-  const [customEmotionInput, setCustomEmotionInput] = useState('');
-  const [isAddingEmotion, setIsAddingEmotion] = useState(false);
-  const [thoughts, setThoughts] = useState([{ text: '', belief: 50 }]);
-  
-  const [hasShame, setHasShame] = useState(true);
-  const [shameLevel, setShameLevel] = useState(50);
+// ─────────────────────────── PDF EXPORT TABLE (HIDDEN) ───────────────────────────
 
-  const toggleEmotion = (name) => {
-    const exists = selectedEmotions.find(e => e.name === name);
-    if (exists) {
-      setSelectedEmotions(selectedEmotions.filter(e => e.name !== name));
-    } else {
-      setSelectedEmotions([...selectedEmotions, { name, intensity: 50 }]);
-    }
-  };
+const PdfTable = ({ logs }) => (
+  <div id="pdf-export-container" style={{position:'absolute',left:-9999,top:0,width:860,background:'white',color:'black',padding:36,fontFamily:'Vazirmatn,serif'}} dir="rtl">
+    <h1 style={{textAlign:'center',fontSize:22,fontWeight:900,marginBottom:24,borderBottom:'2px solid #e2e8f0',paddingBottom:12}}>گزارش NAT Tracker</h1>
+    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,textAlign:'right'}}>
+      <thead>
+        <tr style={{background:'#f8fafc'}}>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'14%'}}>تاریخ و ساعت</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'30%'}}>موقعیت</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'14%'}}>هیجان غالب</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'30%'}}>افکار</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'12%',textAlign:'center'}}>شرم</th>
+        </tr>
+      </thead>
+      <tbody>
+        {logs.map(log=>{
+          const top = log.emotions.length>0?log.emotions.reduce((p,c)=>p.intensity>c.intensity?p:c):null;
+          return (
+            <tr key={log.id}>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>{toPersianNum(log.date)}</td>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',lineHeight:1.7}}>{log.situation}</td>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>{top?`${top.name} (${toPersianNum(top.intensity)}%)`:'—'}</td>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>
+                <ul style={{paddingRight:16,margin:0}}>
+                  {log.thoughts.map((t,i)=>(
+                    <li key={i} style={{marginBottom:4}}>{t.text} <span style={{color:'#6366f1',fontSize:10}}>({toPersianNum(t.belief)}%)</span></li>
+                  ))}
+                </ul>
+              </td>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',textAlign:'center',fontWeight:700}}>
+                {log.hasShame&&log.shameLevel!=null?`${toPersianNum(log.shameLevel)}%`:'نداشت'}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+);
 
-  const updateEmotionIntensity = (name, val) => {
-    setSelectedEmotions(selectedEmotions.map(e => e.name === name ? { ...e, intensity: val } : e));
-  };
-
-  const handleAddCustomEmotion = (e) => {
-    e.preventDefault();
-    if (customEmotionInput.trim()) {
-      setSelectedEmotions([...selectedEmotions, { name: customEmotionInput.trim(), intensity: 50 }]);
-      setCustomEmotionInput('');
-      setIsAddingEmotion(false);
-    }
-  };
-
-  const updateThought = (index, field, value) => {
-    const newThoughts = [...thoughts];
-    newThoughts[index][field] = value;
-    setThoughts(newThoughts);
-  };
-
-  const addThought = () => {
-    setThoughts([...thoughts, { text: '', belief: 50 }]);
-  };
-
-  const handleSetNow = () => {
-    setDateTime(getLocalISOTime());
-  };
-
-  const handleSave = () => {
-    if (!situation.trim()) return alert('لطفا موقعیت را وارد کنید');
-    
-    const parsedDate = dateTime ? new Date(dateTime) : new Date();
-    const formattedDate = new Intl.DateTimeFormat('fa-IR', { 
-      month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-    }).format(parsedDate);
-
-    const newLog = {
-      id: Date.now().toString(),
-      date: formattedDate,
-      situation,
-      emotions: selectedEmotions,
-      thoughts: thoughts.filter(t => t.text.trim() !== ''),
-      shameLevel: hasShame ? shameLevel : null
-    };
-    onSave(newLog);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 md:flex md:items-center md:justify-center md:p-4 backdrop-blur-sm overflow-y-auto transition-colors duration-300">
-      <div className="bg-white dark:bg-zinc-900 min-h-screen md:min-h-0 md:h-auto md:max-h-[90vh] w-full md:max-w-lg md:rounded-3xl flex flex-col relative shadow-2xl dark:shadow-black border border-transparent dark:border-zinc-800 transition-colors">
-        
-        {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-zinc-900 z-10 px-6 py-4 flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 md:rounded-t-3xl transition-colors">
-          <button onClick={onCancel} className="text-slate-500 dark:text-zinc-400 font-medium text-sm hover:text-slate-800 dark:hover:text-zinc-200 transition">لغو</button>
-          <h1 className="text-slate-800 dark:text-zinc-100 font-bold text-lg flex items-center gap-2 transition-colors">
-            NAT Tracker <Brain size={20} className="text-indigo-500 dark:text-indigo-400"/>
-          </h1>
-          <div className="w-8"></div> {/* Spacer */}
-        </div>
-
-        {/* Scrollable Content */}
-        <div className="px-6 py-8 flex-1 overflow-y-auto text-slate-800 dark:text-zinc-100 transition-colors">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-black text-slate-800 dark:text-zinc-100 mb-2 transition-colors">ثبت فکر و هیجان جدید</h2>
-            <p className="text-slate-500 dark:text-zinc-400 text-sm transition-colors">امروز چه چیزی را تجربه کردید؟</p>
-          </div>
-
-          <div className="mb-10">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-3 flex items-center gap-2 transition-colors">
-              <span className="text-indigo-500">۱.</span> تاریخ و ساعت
-            </h3>
-            <div className="flex gap-2 items-center">
-              <input 
-                type="datetime-local" 
-                value={dateTime}
-                onChange={(e) => setDateTime(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-zinc-950 rounded-xl p-3 text-sm text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 focus:outline-none focus:border-indigo-500 transition-colors"
-                dir="ltr"
-              />
-              <button 
-                onClick={handleSetNow}
-                className="shrink-0 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-bold py-3 px-4 rounded-xl transition border border-transparent dark:border-zinc-700"
-              >
-                همین الان
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-10">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-3 flex items-center gap-2 transition-colors">
-              <span className="text-indigo-500">۲.</span> موقعیت
-            </h3>
-            <textarea 
-              value={situation}
-              onChange={(e) => setSituation(e.target.value)}
-              placeholder="چه اتفاقی افتاد؟ کجا بودید؟ چه کسی آنجا بود؟"
-              className="w-full bg-slate-50 dark:bg-zinc-950 rounded-2xl p-4 text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none h-28 border border-slate-200 dark:border-zinc-800 transition-colors"
-            />
-          </div>
-
-          <div className="mb-10">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-3 flex items-center gap-2 transition-colors">
-              <span className="text-indigo-500">۳.</span> هیجان‌ها
-            </h3>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {DEFAULT_EMOTIONS.map(emo => {
-                const isSelected = selectedEmotions.some(e => e.name === emo);
-                return (
-                  <button 
-                    key={emo}
-                    onClick={() => toggleEmotion(emo)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-bold border transition-all ${
-                      isSelected 
-                        ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-500/10 shadow-sm' 
-                        : 'border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-500 hover:text-slate-800 dark:hover:text-zinc-200 bg-white dark:bg-zinc-950'
-                    }`}
-                  >
-                    {emo}
-                  </button>
-                );
-              })}
-              
-              {isAddingEmotion ? (
-                <form onSubmit={handleAddCustomEmotion} className="flex">
-                  <input 
-                    autoFocus
-                    type="text" 
-                    value={customEmotionInput}
-                    onChange={(e) => setCustomEmotionInput(e.target.value)}
-                    placeholder="هیجان دیگر..."
-                    className="px-4 py-1.5 rounded-full text-sm border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-800 dark:text-zinc-100 focus:outline-none focus:border-indigo-500 w-32 mr-2 transition-colors"
-                  />
-                </form>
-              ) : (
-                <button 
-                  onClick={() => setIsAddingEmotion(true)}
-                  className="px-4 py-1.5 rounded-full text-sm font-bold border border-transparent bg-slate-100 dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
-                >
-                  افزودن <Plus size={14} />
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              {selectedEmotions.map((emotion) => (
-                <CustomSlider 
-                  key={emotion.name}
-                  label={emotion.name}
-                  value={emotion.intensity}
-                  onChange={(val) => updateEmotionIntensity(emotion.name, val)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-10">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-3 flex items-center gap-2 transition-colors">
-              <span className="text-indigo-500">۴.</span> افکار
-            </h3>
-            
-            <div className="space-y-6 mb-4">
-              {thoughts.map((thought, idx) => (
-                <div key={idx} className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 relative transition-colors">
-                  {thoughts.length > 1 && (
-                     <button onClick={() => setThoughts(thoughts.filter((_, i) => i !== idx))} className="absolute top-3 left-3 text-slate-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition">
-                       <X size={16} />
-                     </button>
-                  )}
-                  <textarea 
-                    value={thought.text}
-                    onChange={(e) => updateThought(idx, 'text', e.target.value)}
-                    placeholder="چه فکری از سرت گذشت؟ (مثلا: من همیشه اشتباه می‌کنم)"
-                    className="w-full bg-transparent text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none resize-none h-16 mb-4 font-medium transition-colors"
-                  />
-                  <CustomSlider 
-                    label="میزان باور"
-                    value={thought.belief}
-                    onChange={(val) => updateThought(idx, 'belief', val)}
-                  />
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={addThought}
-              className="w-full py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 dark:hover:border-indigo-500/50 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-zinc-950 transition-colors"
-            >
-              <Plus size={18} /> افزودن یک فکر دیگر
-            </button>
-          </div>
-
-          <div className="mb-8 bg-slate-50 dark:bg-zinc-950 p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 transition-colors">
-            <div className="flex justify-between items-center mb-4">
-               <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-2 transition-colors">
-                <span className="text-indigo-500">۵.</span> میزان شرم
-               </h3>
-               
-               <button
-                  onClick={() => setHasShame(!hasShame)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-                    hasShame
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
-                      : 'bg-slate-200 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-slate-300 dark:hover:bg-zinc-700'
-                  }`}
-                >
-                  {hasShame ? 'ثبت می‌شود' : 'شرم نداشتم'}
-                  {hasShame ? <ToggleRight size={18} className="text-indigo-600 dark:text-indigo-400"/> : <ToggleLeft size={18} />}
-               </button>
-            </div>
-            
-            <div className={`transition-all duration-300 overflow-hidden ${hasShame ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-              <p className="text-xs text-slate-500 dark:text-zinc-500 mb-6 font-medium transition-colors">چقدر احساس شرم یا بی‌ارزشی می‌کنید؟</p>
-              <CustomSlider 
-                label="شرم"
-                value={shameLevel}
-                onChange={setShameLevel}
-              />
-            </div>
-            
-            {!hasShame && (
-              <p className="text-xs font-bold text-slate-400 dark:text-zinc-600 text-center py-2 transition-colors">
-                احساس شرم برای این موقعیت ثبت نخواهد شد.
-              </p>
-            )}
-
-          </div>
-        </div>
-
-        <div className="p-4 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 md:rounded-b-3xl shrink-0 transition-colors">
-          <button 
-            onClick={handleSave}
-            className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(79,70,229,0.3)] hover:bg-indigo-500 transition flex items-center justify-center gap-2"
-          >
-            ثبت لاگ
-          </button>
-        </div>
-
-      </div>
-    </div>
-  );
-};
+// ─────────────────────────── APP ───────────────────────────
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('dashboard');
-  // خواندن اطلاعات از دیتابیس لوکال مرورگر هنگام لود صفحه
-  const [logs, setLogs] = useState(() => {
-    const savedLogs = localStorage.getItem('nat_tracker_logs');
-    if (savedLogs) {
-      return JSON.parse(savedLogs);
-    }
-    return initialLogs; // اگه بار اوله، همون دیتای تستی رو نشون میده
+  const [view, setView]         = useState('dashboard');
+  const [isDark, setIsDark]     = useState(true);
+  const [isExporting, setExp]   = useState(false);
+  const [showSave, setShowSave] = useState(false);
+  const [toast, setToast]       = useState('');
+  const toastTimer = useRef(null);
+
+  const [logs, setLogs] = useState(()=>{
+    try { const s=localStorage.getItem('nat_tracker_logs'); return s?JSON.parse(s):initialLogs; } catch{ return initialLogs; }
   });
 
-  // ذخیره اتوماتیک اطلاعات در مرورگر هر بار که لاگ جدیدی ثبت میشه
-  React.useEffect(() => {
-    localStorage.setItem('nat_tracker_logs', JSON.stringify(logs));
-  }, [logs]);
-  const [isDark, setIsDark] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+  const [sessionNotes, setNotes] = useState(()=>{
+    try { const s=localStorage.getItem('nat_tracker_notes'); return s?JSON.parse(s):[]; } catch{ return []; }
+  });
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-      
-      const html2canvas = window.html2canvas;
-      const jsPDF = window.jspdf.jsPDF;
+  useEffect(()=>{ localStorage.setItem('nat_tracker_logs',JSON.stringify(logs)); }, [logs]);
+  useEffect(()=>{ localStorage.setItem('nat_tracker_notes',JSON.stringify(sessionNotes)); }, [sessionNotes]);
 
-      const element = document.getElementById('pdf-export-container');
-      if (!element) return;
-      
-      const canvas = await html2canvas(element, { 
-        scale: 2, 
-        useCORS: true,
-        backgroundColor: '#ffffff' 
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('NAT_Tracker_Report.pdf');
-    } catch (error) {
-      console.error("PDF generation failed:", error);
-    } finally {
-      setIsExporting(false);
-    }
+  const showToast = (msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(()=>setToast(''), 2500);
   };
 
   const handleSaveLog = (newLog) => {
     setLogs([newLog, ...logs]);
-    setCurrentView('dashboard');
+    setView('dashboard');
+    setShowSave(true);
+    showToast('✓ لاگ ثبت شد');
+    setTimeout(()=>setShowSave(false), 2000);
+  };
+
+  const handleSaveNote = (note) => {
+    setNotes([note, ...sessionNotes]);
+    showToast('✓ یادداشت جلسه ذخیره شد');
+  };
+
+  const handleExport = async () => {
+    setExp(true);
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      const el = document.getElementById('pdf-export-container');
+      if (!el) return;
+      const canvas = await window.html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff'});
+      const pdf = new window.jspdf.jsPDF('p','mm','a4');
+      const w = pdf.internal.pageSize.getWidth();
+      pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,w,(canvas.height*w)/canvas.width);
+      pdf.save('NAT_Tracker_Report.pdf');
+      showToast('✓ PDF دانلود شد');
+    } catch(e){ console.error(e); }
+    finally { setExp(false); }
   };
 
   return (
-    <div dir="rtl" className={`font-sans antialiased min-h-screen w-full transition-colors duration-300 ${isDark ? 'dark bg-zinc-950 selection:bg-indigo-500/30 selection:text-indigo-200' : 'bg-slate-50 selection:bg-indigo-200 selection:text-indigo-900'}`}>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-        body { font-family: 'Vazirmatn', sans-serif; background: ${isDark ? '#09090b' : '#f8fafc'}; transition: background 0.3s ease; }
-        input[type=range]:focus { outline: none; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${isDark ? '#3f3f46' : '#cbd5e1'}; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#52525b' : '#94a3b8'}; }
-      `}} />
+    <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh'}}>
+      <style dangerouslySetInnerHTML={{__html:`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
+        input[type=range] { -webkit-appearance:none; appearance:none; }
+        input[type=range]:focus { outline:none; }
+        input[type=range]::-webkit-slider-thumb { display:none; }
+        input[type=range]::-moz-range-thumb { display:none; }
+        textarea { font-family: Vazirmatn, sans-serif; }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:${isDark?'#3f3f46':'#cbd5e1'}; border-radius:10px; }
+        @keyframes popIn { 0%{transform:scale(.5);opacity:0} 60%{transform:scale(1.1);opacity:1} 100%{transform:scale(1);opacity:1} }
+        @keyframes pulse-ring { 0%{transform:scale(1);opacity:.8} 100%{transform:scale(1.8);opacity:0} }
+        @keyframes slideUpFade { 0%{opacity:0;transform:translate(-50%,20px)} 15%{opacity:1;transform:translate(-50%,0)} 80%{opacity:1;transform:translate(-50%,0)} 100%{opacity:0;transform:translate(-50%,-10px)} }
+        @keyframes slideInUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes fadeSlideIn { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes fabExpand { from{transform:translateY(10px) scale(.9);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
+      `}}/>
 
-      {/* --- HIDDEN PDF EXPORT CONTAINER --- */}
-      <div 
-        id="pdf-export-container" 
-        className="absolute left-[-9999px] top-0 w-[800px] bg-white text-black p-8 font-sans" 
-        dir="rtl"
-      >
-        <h1 className="text-2xl font-black mb-6 text-center border-b pb-4 border-gray-300">گزارش NAT Tracker</h1>
-        <table className="w-full text-right border-collapse text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 p-3 font-bold w-1/6">تاریخ و ساعت</th>
-              <th className="border border-gray-300 p-3 font-bold w-1/3">موقعیت</th>
-              <th className="border border-gray-300 p-3 font-bold w-1/6">هیجان غالب</th>
-              <th className="border border-gray-300 p-3 font-bold w-1/4">افکار</th>
-              <th className="border border-gray-300 p-3 font-bold w-1/12 text-center">شرم</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => {
-              const topEmotion = log.emotions.length > 0 
-                ? log.emotions.reduce((prev, current) => (prev.intensity > current.intensity) ? prev : current)
-                : null;
+      <PdfTable logs={logs}/>
+      <SaveAnimation show={showSave}/>
+      <Toast msg={toast}/>
 
-              return (
-                <tr key={log.id}>
-                  <td className="border border-gray-300 p-3 align-top">{toPersianNum(log.date)}</td>
-                  <td className="border border-gray-300 p-3 align-top leading-relaxed">{log.situation}</td>
-                  <td className="border border-gray-300 p-3 align-top">
-                    {topEmotion ? `${topEmotion.name} (${toPersianNum(topEmotion.intensity)}%)` : '-'}
-                  </td>
-                  <td className="border border-gray-300 p-3 align-top">
-                    <ul className="list-disc pr-4 space-y-1">
-                      {log.thoughts.map((t, idx) => (
-                        <li key={idx}>{t.text} <span className="text-gray-500 text-[10px]">({toPersianNum(t.belief)}%)</span></li>
-                      ))}
-                    </ul>
-                  </td>
-                  <td className="border border-gray-300 p-3 align-top text-center font-bold">
-                    {log.shameLevel !== null && log.shameLevel !== undefined ? `${toPersianNum(log.shameLevel)}%` : 'نداشت'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {view === 'dashboard' && (
+        <>
+          <DashboardView
+            logs={logs} sessionNotes={sessionNotes}
+            onExport={handleExport} isDark={isDark}
+            toggleTheme={()=>setIsDark(!isDark)}
+            isExporting={isExporting}
+            onShowCognitive={()=>setView('cognitive')}
+            onShowNotes={()=>setView('notes')}
+          />
+          <FABMenu
+            onAddLog={()=>setView('add')}
+            onAddNote={()=>setView('notes')}
+            isDark={isDark}
+          />
+        </>
+      )}
 
-      {/* --- STANDARD BROWSER UI --- */}
-      <div className="relative w-full max-w-5xl mx-auto md:py-8 h-full min-h-screen">
-        <div className="bg-slate-50 dark:bg-zinc-950 md:rounded-[2rem] md:shadow-2xl overflow-hidden relative min-h-screen md:min-h-[850px] md:border border-slate-200 dark:border-zinc-800 transition-colors duration-300">
-          
-          {currentView === 'dashboard' && (
-            <DashboardView 
-              logs={logs} 
-              onAddClick={() => setCurrentView('add')} 
-              onExport={handleExport}
-              isDark={isDark}
-              toggleTheme={() => setIsDark(!isDark)}
-              isExporting={isExporting}
-            />
-          )}
-
-          {currentView === 'add' && (
-             <div className="absolute inset-0 z-50">
-                <AddLogView 
-                  onSave={handleSaveLog} 
-                  onCancel={() => setCurrentView('dashboard')} 
-                />
-             </div>
-          )}
-
+      {view === 'add' && (
+        <div style={{position:'fixed',inset:0,zIndex:150}}>
+          <AddLogView onSave={handleSaveLog} onCancel={()=>setView('dashboard')} isDark={isDark}/>
         </div>
-      </div>
+      )}
+
+      {view === 'cognitive' && (
+        <CognitiveErrorsView onClose={()=>setView('dashboard')} isDark={isDark}/>
+      )}
+
+      {view === 'notes' && (
+        <SessionNotesView
+          notes={sessionNotes}
+          onSave={handleSaveNote}
+          onClose={()=>setView('dashboard')}
+          isDark={isDark}
+        />
+      )}
     </div>
   );
 }
