@@ -1,13 +1,23 @@
+
+bash
+
+cat > /home/claude/nat-tracker-v2/index.html << 'EOF'
 <!doctype html>
-<html lang="en">
+<html lang="fa">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>nat-tracker</title>
+    <title>NAT Tracker</title>
+    <script>
+      tailwind.config = { darkMode: 'class' }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+EOF
+echo "index.html written"
