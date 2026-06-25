@@ -126,21 +126,18 @@ const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
     <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
       <span>{label}</span><span>{toPersianNum(value)}%</span>
     </div>
-    {/* استفاده از رفتار Native مرورگر بجای RotateY */}
-    <div className="relative w-full h-6 rounded-full flex items-center" dir="rtl"
+    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible"
       style={{background:'rgba(128,128,128,0.15)'}}>
-      {/* نوار پر شده متصل به راست */}
       <div className="absolute right-0 h-full rounded-full pointer-events-none"
         style={{width:`${value}%`,background:color,transition:'width .1s ease-out'}}/>
       
-      {/* اینپوت اصلی که شفاف شده با Z-index بالا برای دریافت تاچ */}
-      <input type="range" min="0" max="100" value={value}
-        onChange={e=>onChange(parseInt(e.target.value))}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer m-0 p-0" style={{zIndex: 50}} dir="rtl"/>
-        
-      {/* نشانگر یا Thumb سفید رنگ */}
       <div className="absolute h-6 w-6 rounded-full pointer-events-none"
         style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out', zIndex: 10}}/>
+        
+      <input type="range" min="0" max="100" value={100 - value}
+        onChange={e=>onChange(100 - parseInt(e.target.value))}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer m-0 p-0" 
+        style={{zIndex: 50, WebkitAppearance: 'none', appearance: 'none'}} />
     </div>
   </div>
 );
@@ -981,7 +978,6 @@ export default function App() {
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
       <style dangerouslySetInnerHTML={{__html:`
-        /* Thumb مخفی ولی قابل لمس */
         input[type=range]::-webkit-slider-thumb { 
           -webkit-appearance:none; 
           width:24px; height:24px; border-radius:50%; 
