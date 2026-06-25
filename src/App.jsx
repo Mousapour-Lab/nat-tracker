@@ -63,9 +63,12 @@ const loadScript = src => new Promise((res, rej) => {
 
 const toPersianNum = n => n.toString().replace(/\d/g, x => '۰۱۲۳۴۵۶۷۸۹'[x]);
 
-const getLocalISOTime = () => {
-  const now = new Date();
-  return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+// دریافت تاریخ و ساعت دقیق شمسی
+const getShamsiNow = () => {
+  return new Intl.DateTimeFormat('fa-IR', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).format(new Date());
 };
 
 // ─────────────────────────── MICRO COMPONENTS ───────────────────────────
@@ -109,20 +112,24 @@ const Toast = ({ msg }) => {
   );
 };
 
+// اسلایدر بازنویسی شده با پشتیبانی کامل و بی‌نقص RTL
 const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
   <div className="w-full mb-4">
     <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
       <span>{label}</span><span>{toPersianNum(value)}%</span>
     </div>
-    {/* هک RTL با rotateY: نوار از راست به چپ پر میشه و کشیدن به سمت چپ مقدار رو زیاد میکنه */}
-    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="ltr"
+    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="rtl"
       style={{background:'rgba(128,128,128,0.15)'}}>
+      {/* نوار پر شده متصل به راست */}
       <div className="absolute right-0 h-full rounded-full pointer-events-none"
         style={{width:`${value}%`,background:color,transition:'width .1s ease-out'}}/>
+      
+      {/* اینپوت اصلی که شفاف شده و تمام عرض رو پوشونده */}
       <input type="range" min="0" max="100" value={value}
         onChange={e=>onChange(parseInt(e.target.value))}
-        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0"
-        style={{transform: 'rotateY(180deg)'}} />
+        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0 m-0" dir="rtl"/>
+        
+      {/* نشانگر یا Thumb سفید رنگ */}
       <div className="absolute h-6 w-6 rounded-full pointer-events-none z-0 top-0"
         style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out'}}/>
     </div>
@@ -219,6 +226,11 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
   const [a, setA] = useState('');
   const [color, setColor] = useState(NOTE_COLORS[0]);
 
+  // رفع باگ سینک شدن وضعیت Add
+  useEffect(() => {
+    setAdding(startAdding);
+  }, [startAdding]);
+
   const bg   = isDark ? '#09090b' : '#f8fafc';
   const card = isDark ? '#18181b' : '#ffffff';
   const bd   = isDark ? '#27272a' : '#e2e8f0';
@@ -245,7 +257,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
     if (!q.trim() || !a.trim()) return;
     onSave({
       id: editingId || Date.now().toString(),
-      date: new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric'}).format(new Date()),
+      date: getShamsiNow(), // ذخیره مستقیم رشته شمسی
       question: q.trim(), answer: a.trim(), color
     });
     setQ(''); setA(''); setEditingId(null); setAdding(false);
@@ -312,7 +324,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
               animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
+                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{toPersianNum(note.date)}</span>
                 <div style={{display: 'flex', gap: 8}}>
                   <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
                     <Edit2 size={16}/>
@@ -336,7 +348,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
 };
 
 const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
-  const [dateTime, setDateTime] = useState('');
+  const [dateStr, setDateStr] = useState('');
   const [situation, setSituation] = useState('');
   const [selectedEmotions, setSelectedEmotions] = useState([]);
   const [customInput, setCustomInput] = useState('');
@@ -352,7 +364,9 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
       setThoughts(initialData.thoughts);
       setHasShame(initialData.hasShame);
       setShameLevel(initialData.shameLevel !== null ? initialData.shameLevel : 50);
-      if (initialData.isoDate) setDateTime(initialData.isoDate.slice(0, 16));
+      setDateStr(initialData.date); // Load string directly
+    } else {
+      setDateStr(getShamsiNow()); // Set default text natively
     }
   }, [initialData]);
 
@@ -380,11 +394,9 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
 
   const handleSave = () => {
     if (!situation.trim()) return alert('لطفا موقعیت را وارد کنید');
-    const d = dateTime ? new Date(dateTime) : new Date();
     onSave({
       id: initialData ? initialData.id : Date.now().toString(),
-      date: new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d),
-      isoDate: d.toISOString(),
+      date: dateStr || getShamsiNow(), // Save as plain text
       situation,
       emotions: selectedEmotions,
       thoughts: thoughts.filter(t=>t.text.trim()!==''),
@@ -411,9 +423,9 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۱. تاریخ و ساعت</h3>
             <div style={{display:'flex',gap:8}}>
-              <input type="datetime-local" value={dateTime} onChange={e=>setDateTime(e.target.value)}
-                style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none'}} dir="ltr"/>
-              <button onClick={()=>setDateTime(getLocalISOTime())}
+              <input type="text" value={dateStr} onChange={e=>setDateStr(e.target.value)}
+                style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none',fontFamily:'Vazirmatn, sans-serif'}} dir="rtl"/>
+              <button onClick={()=>setDateStr(getShamsiNow())}
                 style={{flexShrink:0,background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',borderRadius:12,padding:'11px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                 همین الان
               </button>
