@@ -70,6 +70,14 @@ const getLocalISOTime = () => {
 
 // ─────────────────────────── MICRO COMPONENTS ───────────────────────────
 
+const InitialLoading = () => (
+  <div style={{position:'fixed',inset:0,background:'#09090b',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+    <Brain size={64} color="#6366f1" style={{animation:'pulse-ring 1.5s infinite ease-out'}} />
+    <h2 style={{color:'white',marginTop:24,fontSize:20,fontWeight:900,letterSpacing:'-0.5px'}}>در حال آماده‌سازی...</h2>
+    <p style={{color:'#a1a1aa',fontSize:13,marginTop:8}}>فضای شخصی‌سازی شده شما</p>
+  </div>
+);
+
 const SaveAnimation = ({ show }) => {
   if (!show) return null;
   return (
@@ -106,15 +114,17 @@ const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
     <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
       <span>{label}</span><span>{toPersianNum(value)}%</span>
     </div>
-    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="rtl"
+    {/* هک RTL با rotateY: نوار از راست به چپ پر میشه و کشیدن به سمت چپ مقدار رو زیاد میکنه */}
+    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="ltr"
       style={{background:'rgba(128,128,128,0.15)'}}>
       <div className="absolute right-0 h-full rounded-full pointer-events-none"
-        style={{width:`${value}%`,background:color,transition:'width .15s'}}/>
+        style={{width:`${value}%`,background:color,transition:'width .1s ease-out'}}/>
       <input type="range" min="0" max="100" value={value}
         onChange={e=>onChange(parseInt(e.target.value))}
-        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0" dir="rtl"/>
+        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0"
+        style={{transform: 'rotateY(180deg)'}} />
       <div className="absolute h-6 w-6 rounded-full pointer-events-none z-0 top-0"
-        style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .15s'}}/>
+        style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out'}}/>
     </div>
   </div>
 );
@@ -156,57 +166,58 @@ const FABMenu = ({ onAddLog, onAddNote }) => {
   );
 };
 
-// ─────────────────────────── COGNITIVE ERRORS VIEW ───────────────────────────
+// ─────────────────────────── MODALS ───────────────────────────
 
-const CognitiveErrorsView = ({ onClose, isDark }) => {
-  const bg  = isDark ? '#09090b' : '#f8fafc';
+const CognitiveErrorsModal = ({ onClose, isDark }) => {
+  const bg   = isDark ? '#09090b' : '#f8fafc';
   const card = isDark ? '#18181b' : '#ffffff';
-  const bd  = isDark ? '#27272a' : '#e2e8f0';
-  const tx  = isDark ? '#f4f4f5' : '#1e293b';
-  const sub = isDark ? '#a1a1aa' : '#475569';
-  const ex  = isDark ? '#d4d4d8' : '#374151';
-  const exBg= isDark ? '#27272a' : '#f8fafc';
+  const bd   = isDark ? '#27272a' : '#e2e8f0';
+  const tx   = isDark ? '#f4f4f5' : '#1e293b';
+  const sub  = isDark ? '#a1a1aa' : '#475569';
+  const ex   = isDark ? '#d4d4d8' : '#374151';
+  const exBg = isDark ? '#27272a' : '#f8fafc';
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:200,overflowY:'auto',background:bg,animation:'slideInUp .3s ease-out'}}>
-      <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بازگشت</button>
-        <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
-          <BookOpen size={20} color="#6366f1"/> خطاهای شناختی
-        </h1>
-        <div style={{width:60}}/>
-      </div>
-      <div style={{padding:'24px 20px',maxWidth:640,margin:'0 auto'}}>
-        <p style={{color:sub,fontSize:13,textAlign:'center',marginBottom:20,lineHeight:1.7}}>
-          این فهرست خطاهای رایج در تفکر را نشان می‌دهد. یادتان باشد همه انسان‌ها گاهی این خطاها را دارند.
-        </p>
-        {COGNITIVE_ERRORS.map((err,i)=>(
-          <div key={err.id} style={{background:card,border:`1px solid ${bd}`,borderRadius:16,padding:'18px 20px',marginBottom:10,animation:`fadeSlideIn .3s ease-out ${i*0.035}s both`}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-              <span style={{background:'#6366f1',color:'white',borderRadius:8,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,flexShrink:0}}>
-                {toPersianNum(err.id)}
-              </span>
-              <h3 style={{color:tx,fontWeight:900,fontSize:15,margin:0}}>{err.name}</h3>
+    <div style={{position:'fixed',inset:0,zIndex:200,background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)',display:'flex',justifyContent:'center'}}>
+      <div style={{background:bg,width:'100%',maxWidth:640,display:'flex',flexDirection:'column',animation:'slideInUp .3s ease-out'}}>
+        <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بستن ✕</button>
+          <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
+            <BookOpen size={20} color="#6366f1"/> خطاهای شناختی
+          </h1>
+          <div style={{width:40}}/>
+        </div>
+        <div style={{padding:'24px 20px',flex:1,overflowY:'auto'}}>
+          <p style={{color:sub,fontSize:13,textAlign:'center',marginBottom:20,lineHeight:1.7}}>
+            این فهرست خطاهای رایج در تفکر را نشان می‌دهد. یادتان باشد همه انسان‌ها گاهی این خطاها را دارند.
+          </p>
+          {COGNITIVE_ERRORS.map((err,i)=>(
+            <div key={err.id} style={{background:card,border:`1px solid ${bd}`,borderRadius:16,padding:'18px 20px',marginBottom:10,animation:`fadeSlideIn .3s ease-out ${i*0.035}s both`}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                <span style={{background:'#6366f1',color:'white',borderRadius:8,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,flexShrink:0}}>
+                  {toPersianNum(err.id)}
+                </span>
+                <h3 style={{color:tx,fontWeight:900,fontSize:15,margin:0}}>{err.name}</h3>
+              </div>
+              <p style={{color:sub,fontSize:13,lineHeight:1.8,marginBottom:10}}>{err.desc}</p>
+              <div style={{background:exBg,border:`1px solid ${bd}`,borderRadius:10,padding:'10px 14px'}}>
+                <span style={{color:'#6366f1',fontSize:11,fontWeight:700}}>مثال: </span>
+                <span style={{color:ex,fontSize:13,fontStyle:'italic'}}>«{err.ex}»</span>
+              </div>
             </div>
-            <p style={{color:sub,fontSize:13,lineHeight:1.8,marginBottom:10}}>{err.desc}</p>
-            <div style={{background:exBg,border:`1px solid ${bd}`,borderRadius:10,padding:'10px 14px'}}>
-              <span style={{color:'#6366f1',fontSize:11,fontWeight:700}}>مثال: </span>
-              <span style={{color:ex,fontSize:13,fontStyle:'italic'}}>«{err.ex}»</span>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-// ─────────────────────────── SESSION NOTES VIEW ───────────────────────────
-
-const SessionNotesView = ({ notes, onSave, onClose, isDark }) => {
+const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAdding }) => {
+  const [adding, setAdding] = useState(startAdding);
+  const [editingId, setEditingId] = useState(null);
   const [q, setQ] = useState('');
   const [a, setA] = useState('');
   const [color, setColor] = useState(NOTE_COLORS[0]);
-  const [adding, setAdding] = useState(false);
 
   const bg   = isDark ? '#09090b' : '#f8fafc';
   const card = isDark ? '#18181b' : '#ffffff';
@@ -222,89 +233,109 @@ const SessionNotesView = ({ notes, onSave, onClose, isDark }) => {
     fontFamily:'Vazirmatn,sans-serif',resize:'none',outline:'none'
   };
 
+  const handleEditReq = (note) => {
+    setEditingId(note.id);
+    setQ(note.question);
+    setA(note.answer);
+    setColor(note.color);
+    setAdding(true);
+  };
+
   const handleSave = () => {
     if (!q.trim() || !a.trim()) return;
     onSave({
-      id:Date.now().toString(),
-      date:new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric'}).format(new Date()),
-      question:q.trim(), answer:a.trim(), color
+      id: editingId || Date.now().toString(),
+      date: new Intl.DateTimeFormat('fa-IR',{month:'long',day:'numeric',year:'numeric'}).format(new Date()),
+      question: q.trim(), answer: a.trim(), color
     });
-    setQ(''); setA(''); setAdding(false);
+    setQ(''); setA(''); setEditingId(null); setAdding(false);
+  };
+
+  const cancelAdd = () => {
+    setQ(''); setA(''); setEditingId(null); setAdding(false);
   };
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:200,overflowY:'auto',background:bg,animation:'slideInUp .3s ease-out'}}>
-      <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بازگشت</button>
-        <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
-          <MessageSquare size={20} color="#ec4899"/> تکلیف / یادداشت
-        </h1>
-        <button onClick={()=>setAdding(true)} style={{background:'#ec4899',color:'white',border:'none',borderRadius:10,padding:'7px 14px',fontSize:13,fontWeight:700,cursor:'pointer'}}>
-          + جدید
-        </button>
-      </div>
+    <div style={{position:'fixed',inset:0,zIndex:200,background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)',display:'flex',justifyContent:'center'}}>
+      <div style={{background:bg,width:'100%',maxWidth:640,display:'flex',flexDirection:'column',animation:'slideInUp .3s ease-out'}}>
+        <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>بستن ✕</button>
+          <h1 style={{color:tx,fontWeight:900,fontSize:18,display:'flex',alignItems:'center',gap:8}}>
+            <MessageSquare size={20} color="#ec4899"/> تکلیف / یادداشت
+          </h1>
+          <button onClick={()=>setAdding(true)} disabled={adding} style={{background:adding?'transparent':'#ec4899',color:adding?'transparent':'white',border:'none',borderRadius:10,padding:'7px 14px',fontSize:13,fontWeight:700,cursor:adding?'default':'pointer'}}>
+            + جدید
+          </button>
+        </div>
 
-      <div style={{padding:'20px',maxWidth:640,margin:'0 auto'}}>
-        {adding && (
-          <div style={{background:card,border:`2px solid #ec4899`,borderRadius:18,padding:20,marginBottom:20,animation:'popIn .25s ease-out'}}>
-            <h3 style={{color:tx,fontWeight:900,marginBottom:14,fontSize:15}}>یادداشت جدید 📝</h3>
-            <div style={{marginBottom:12}}>
-              <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>سوال یا تکلیف تراپیست</label>
-              <textarea value={q} onChange={e=>setQ(e.target.value)} rows={3} placeholder="تراپیست از شما چه خواست؟" style={iStyle}/>
-            </div>
-            <div style={{marginBottom:14}}>
-              <label style={{color:'#ec4899',fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>جواب شما (بدون کمک هوش مصنوعی 🧠)</label>
-              <textarea value={a} onChange={e=>setA(e.target.value)} rows={5} placeholder="جواب خودتان را اینجا بنویسید..." style={iStyle}/>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:8}}>رنگ برچسب</label>
-              <div style={{display:'flex',gap:8}}>
-                {NOTE_COLORS.map(c=>(
-                  <button key={c} onClick={()=>setColor(c)} style={{
-                    width:28,height:28,borderRadius:'50%',background:c,border:'none',cursor:'pointer',
-                    outline:color===c?`3px solid white`:'none', boxShadow:color===c?`0 0 0 5px ${c}50`:'none',
-                    transform:color===c?'scale(1.2)':'scale(1)', transition:'all .2s'
-                  }}/>
-                ))}
+        <div style={{padding:'20px',flex:1,overflowY:'auto'}}>
+          {adding && (
+            <div style={{background:card,border:`2px solid #ec4899`,borderRadius:18,padding:20,marginBottom:20,animation:'popIn .25s ease-out'}}>
+              <h3 style={{color:tx,fontWeight:900,marginBottom:14,fontSize:15}}>{editingId ? 'ویرایش یادداشت 📝' : 'یادداشت جدید 📝'}</h3>
+              <div style={{marginBottom:12}}>
+                <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>سوال یا تکلیف تراپیست</label>
+                <textarea value={q} onChange={e=>setQ(e.target.value)} rows={3} placeholder="تراپیست از شما چه خواست؟" style={iStyle}/>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{color:'#ec4899',fontSize:12,fontWeight:700,display:'block',marginBottom:6}}>جواب شما (بدون کمک هوش مصنوعی 🧠)</label>
+                <textarea value={a} onChange={e=>setA(e.target.value)} rows={5} placeholder="جواب خودتان را اینجا بنویسید..." style={iStyle}/>
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={{color:sub,fontSize:12,fontWeight:700,display:'block',marginBottom:8}}>رنگ برچسب</label>
+                <div style={{display:'flex',gap:8}}>
+                  {NOTE_COLORS.map(c=>(
+                    <button key={c} onClick={()=>setColor(c)} style={{
+                      width:28,height:28,borderRadius:'50%',background:c,border:'none',cursor:'pointer',
+                      outline:color===c?`3px solid white`:'none', boxShadow:color===c?`0 0 0 5px ${c}50`:'none',
+                      transform:color===c?'scale(1.2)':'scale(1)', transition:'all .2s'
+                    }}/>
+                  ))}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={cancelAdd} style={{flex:1,padding:'11px',borderRadius:12,background:isDark?'#27272a':'#f1f5f9',color:sub,border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>لغو</button>
+                <button onClick={handleSave} style={{flex:2,padding:'11px',borderRadius:12,background:'#ec4899',color:'white',border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>{editingId ? 'بروزرسانی ✓' : 'ذخیره یادداشت ✓'}</button>
               </div>
             </div>
-            <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setAdding(false)} style={{flex:1,padding:'11px',borderRadius:12,background:isDark?'#27272a':'#f1f5f9',color:sub,border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>لغو</button>
-              <button onClick={handleSave} style={{flex:2,padding:'11px',borderRadius:12,background:'#ec4899',color:'white',border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>ذخیره یادداشت ✓</button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {notes.length===0 && !adding ? (
-          <div style={{textAlign:'center',padding:'60px 24px',color:sub}}>
-            <MessageSquare size={48} style={{margin:'0 auto 14px',opacity:.3,display:'block'}}/>
-            <p style={{fontWeight:700,marginBottom:6}}>یادداشتی ندارید</p>
-            <p style={{fontSize:13}}>از دکمه «+ جدید» استفاده کنید</p>
-          </div>
-        ) : notes.map((note,i)=>(
-          <div key={note.id} style={{
-            background:card,border:`1px solid ${bd}`,borderRadius:16,
-            padding:20,marginBottom:12,borderRight:`4px solid ${note.color}`,
-            animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
-          }}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-              <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
+          {notes.length===0 && !adding ? (
+            <div style={{textAlign:'center',padding:'60px 24px',color:sub}}>
+              <MessageSquare size={48} style={{margin:'0 auto 14px',opacity:.3,display:'block'}}/>
+              <p style={{fontWeight:700,marginBottom:6}}>یادداشتی ندارید</p>
+              <p style={{fontSize:13}}>از دکمه «+ جدید» استفاده کنید</p>
             </div>
-            <div style={{background:note.color+'15',borderRadius:10,padding:'10px 14px',marginBottom:10,border:`1px solid ${note.color}35`}}>
-              <span style={{color:note.color,fontSize:11,fontWeight:700}}>سوال تراپیست: </span>
-              <p style={{color:tx,fontSize:13,margin:'4px 0 0',lineHeight:1.7}}>{note.question}</p>
+          ) : notes.map((note,i)=>(
+            <div key={note.id} style={{
+              background:card,border:`1px solid ${bd}`,borderRadius:16,
+              padding:20,marginBottom:12,borderRight:`4px solid ${note.color}`,
+              animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
+            }}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
+                <div style={{display: 'flex', gap: 8}}>
+                  <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
+                    <Edit2 size={16}/>
+                  </button>
+                  <button onClick={() => {if(window.confirm('یادداشت حذف شود؟')) onDelete(note.id)}} style={{color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="حذف">
+                    <Trash2 size={16}/>
+                  </button>
+                </div>
+              </div>
+              <div style={{background:note.color+'15',borderRadius:10,padding:'10px 14px',marginBottom:10,border:`1px solid ${note.color}35`}}>
+                <span style={{color:note.color,fontSize:11,fontWeight:700}}>سوال تراپیست: </span>
+                <p style={{color:tx,fontSize:13,margin:'4px 0 0',lineHeight:1.7}}>{note.question}</p>
+              </div>
+              <p style={{color:sub,fontSize:13,lineHeight:1.8}}>{note.answer}</p>
             </div>
-            <p style={{color:sub,fontSize:13,lineHeight:1.8}}>{note.answer}</p>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-// ─────────────────────────── ADD LOG VIEW (with Edit mode) ───────────────────────────
-
-const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
+const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
   const [dateTime, setDateTime] = useState('');
   const [situation, setSituation] = useState('');
   const [selectedEmotions, setSelectedEmotions] = useState([]);
@@ -321,9 +352,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
       setThoughts(initialData.thoughts);
       setHasShame(initialData.hasShame);
       setShameLevel(initialData.shameLevel !== null ? initialData.shameLevel : 50);
-      if (initialData.isoDate) {
-        setDateTime(initialData.isoDate.slice(0, 16));
-      }
+      if (initialData.isoDate) setDateTime(initialData.isoDate.slice(0, 16));
     }
   }, [initialData]);
 
@@ -366,10 +395,10 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)'}}>
-      <div style={{background:card,minHeight:'100vh',width:'100%',maxWidth:520,margin:'0 auto',display:'flex',flexDirection:'column'}}>
+      <div style={{background:bg,minHeight:'100vh',width:'100%',maxWidth:520,margin:'0 auto',display:'flex',flexDirection:'column',animation:'slideInUp .3s ease-out'}}>
         {/* Header */}
-        <div style={{position:'sticky',top:0,zIndex:10,background:card,borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <button onClick={onCancel} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>لغو</button>
+        <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>لغو ✕</button>
           <h1 style={{color:tx,fontWeight:900,fontSize:17,display:'flex',alignItems:'center',gap:8}}>
             {initialData ? 'ویرایش فکر' : 'ثبت فکر جدید'} <Brain size={18} color="#6366f1"/>
           </h1>
@@ -383,7 +412,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۱. تاریخ و ساعت</h3>
             <div style={{display:'flex',gap:8}}>
               <input type="datetime-local" value={dateTime} onChange={e=>setDateTime(e.target.value)}
-                style={{flex:1,background:bg,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none'}} dir="ltr"/>
+                style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none'}} dir="ltr"/>
               <button onClick={()=>setDateTime(getLocalISOTime())}
                 style={{flexShrink:0,background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',borderRadius:12,padding:'11px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                 همین الان
@@ -395,9 +424,8 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۲. موقعیت</h3>
             <textarea value={situation} onChange={e=>setSituation(e.target.value)}
-              placeholder="چه اتفاقی افتاد؟ کجا بودید؟"
-              rows={4}
-              style={{width:'100%',boxSizing:'border-box',background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:'12px 14px',color:tx,fontSize:13,fontFamily:'Vazirmatn,sans-serif',resize:'none',outline:'none'}}
+              placeholder="چه اتفاقی افتاد؟ کجا بودید؟" rows={4}
+              style={{width:'100%',boxSizing:'border-box',background:card,border:`1px solid ${bd}`,borderRadius:14,padding:'12px 14px',color:tx,fontSize:13,fontFamily:'Vazirmatn,sans-serif',resize:'none',outline:'none'}}
             />
           </div>
 
@@ -423,7 +451,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
                 <div style={{display:'flex',gap:6}}>
                   <input autoFocus value={customInput} onChange={e=>setCustomInput(e.target.value)}
                     onKeyDown={e=>e.key==='Enter'&&addCustomEmo()} placeholder="هیجان دیگر..."
-                    style={{background:bg,border:`1px solid ${bd}`,borderRadius:20,padding:'6px 12px',color:tx,fontSize:12,outline:'none',width:100}}
+                    style={{background:card,border:`1px solid ${bd}`,borderRadius:20,padding:'6px 12px',color:tx,fontSize:12,outline:'none',width:100}}
                   />
                   <button onClick={addCustomEmo} style={{background:'#6366f1',color:'white',border:'none',borderRadius:20,padding:'6px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>✓</button>
                 </div>
@@ -450,7 +478,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:10}}>۴. افکار</h3>
             <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:10}}>
               {thoughts.map((t,i)=>(
-                <div key={i} style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:14,position:'relative'}}>
+                <div key={i} style={{background:card,border:`1px solid ${bd}`,borderRadius:14,padding:14,position:'relative'}}>
                   {thoughts.length>1&&(
                     <button onClick={()=>setThoughts(thoughts.filter((_,j)=>j!==i))}
                       style={{position:'absolute',top:10,left:10,background:'none',border:'none',cursor:'pointer',color:isDark?'#52525b':'#94a3b8'}}>
@@ -474,7 +502,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
           </div>
 
           {/* Shame */}
-          <div style={{background:bg,border:`1px solid ${bd}`,borderRadius:14,padding:16,marginBottom:24}}>
+          <div style={{background:card,border:`1px solid ${bd}`,borderRadius:14,padding:16,marginBottom:24}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:hasShame?14:0}}>
               <h3 style={{color:sub,fontSize:12,fontWeight:700}}>۵. میزان شرم</h3>
               <button onClick={()=>setHasShame(!hasShame)} style={{
@@ -514,7 +542,7 @@ const AddLogView = ({ onSave, onCancel, isDark, initialData }) => {
 
 // ─────────────────────────── DASHBOARD VIEW ───────────────────────────
 
-const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, onShowCognitive, onShowNotes, onEditLog, onDeleteLog }) => {
+const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog }) => {
   const logsWithShame = logs.filter(l=>l.hasShame&&l.shameLevel!=null);
   const avgShame = logsWithShame.length===0?0:Math.round(logsWithShame.reduce((a,l)=>a+l.shameLevel,0)/logsWithShame.length);
 
@@ -529,7 +557,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
       {/* Header */}
       <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,0.9)':'rgba(248,250,252,0.9)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div style={{display:'flex',gap:6}}>
-          {/* Print Button */}
           <button onClick={onPrint} title="پرینت مستقیم" style={{
             display:'flex',alignItems:'center',justifyContent:'center',
             background:'none',border:`1px solid ${bd}`,borderRadius:10,
@@ -538,7 +565,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
             <Printer size={18}/>
           </button>
           
-          {/* Word Export Button */}
           <button onClick={onExportWord} title="خروجی Word" style={{
             display:'flex',alignItems:'center',justifyContent:'center',
             background:'none',border:`1px solid ${bd}`,borderRadius:10,
@@ -547,7 +573,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
             <FileText size={18}/>
           </button>
 
-          {/* PDF Export Button */}
           <button onClick={onExportPDF} disabled={isExporting} title="خروجی PDF" style={{
             display:'flex',alignItems:'center',justifyContent:'center',
             background:'none',border:`1px solid ${bd}`,borderRadius:10,
@@ -627,7 +652,7 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                     </div>
                   )}
 
-                  {/* THOUGHTS UI - Redesigned based on the image */}
+                  {/* THOUGHTS UI */}
                   {log.thoughts&&log.thoughts.length>0&&(
                     <div style={{marginTop: 'auto', paddingTop: 16, borderTop: `1px solid ${bd}`}}>
                       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -635,7 +660,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                           <MessageSquare size={14}/> افکار ({toPersianNum(log.thoughts.length)})
                         </h4>
                         
-                        {/* Edit and Delete Actions */}
                         <div style={{display: 'flex', gap: 8}}>
                             <button onClick={() => onEditLog(log)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
                               <Edit2 size={16}/>
@@ -654,14 +678,12 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                             borderRadius: 14, padding: '12px 14px',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10
                           }}>
-                            {/* Belief Pill (Left Side) */}
+                            {/* Pill */}
                             <span style={{
-                              background: isDark ? '#09090b' : '#e2e8f0',
-                              color: tx, fontSize: 11, fontWeight: 700,
+                              background: isDark ? '#09090b' : '#e2e8f0', color: tx, fontSize: 11, fontWeight: 700,
                               padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap'
                             }}>باور {toPersianNum(th.belief)}٪</span>
                             
-                            {/* Text (Right Side) */}
                             <span style={{color: tx, fontSize: 13, fontWeight: 600, lineHeight: 1.6, textAlign: 'right', flex: 1}}>{th.text}</span>
                           </div>
                         ))}
@@ -682,7 +704,7 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
         borderTop:`1px solid ${bd}`, padding:'10px 20px 16px',
         display:'flex',justifyContent:'space-around',alignItems:'center', zIndex:50
       }}>
-        <button onClick={onShowCognitive} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
+        <button onClick={openCognitive} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
           <BookOpen size={21}/>
           <span style={{fontSize:10,fontWeight:600}}>خطاهای شناختی</span>
         </button>
@@ -697,7 +719,7 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
           </div>
           <span style={{fontSize:10,fontWeight:700}}>داشبورد</span>
         </button>
-        <button onClick={onShowNotes} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
+        <button onClick={()=>openNotes(false)} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'none',border:'none',cursor:'pointer',color:sub}}>
           <MessageSquare size={21}/>
           <span style={{fontSize:10,fontWeight:600}}>جلسه</span>
         </button>
@@ -750,8 +772,13 @@ const PdfTable = ({ logs }) => (
 // ─────────────────────────── APP ───────────────────────────
 
 export default function App() {
-  const [view, setView]         = useState('dashboard');
-  const [editingLog, setEditingLog] = useState(null); // Added for edit functionality
+  const [appLoading, setAppLoading] = useState(true);
+  
+  // Modal states instead of single "view" state
+  const [modals, setModals] = useState({ addLog: false, cognitive: false, notes: false });
+  const [notesStartAdding, setNotesStartAdding] = useState(false);
+  const [editingLog, setEditingLog] = useState(null);
+
   const [isDark, setIsDark]     = useState(true);
   const [isExporting, setExp]   = useState(false);
   const [showSave, setShowSave] = useState(false);
@@ -766,7 +793,12 @@ export default function App() {
     try { const s=localStorage.getItem('nat_tracker_notes'); return s?JSON.parse(s):[]; } catch{ return []; }
   });
 
-  // Local Storage Synchronization (Cache)
+  // App initialization loading simulation
+  useEffect(() => {
+    setTimeout(() => setAppLoading(false), 900);
+  }, []);
+
+  // Sync to local storage
   useEffect(()=>{ localStorage.setItem('nat_tracker_logs',JSON.stringify(logs)); }, [logs]);
   useEffect(()=>{ localStorage.setItem('nat_tracker_notes',JSON.stringify(sessionNotes)); }, [sessionNotes]);
 
@@ -776,24 +808,27 @@ export default function App() {
     toastTimer.current = setTimeout(()=>setToast(''), 2500);
   };
 
+  const openModal = (name) => setModals(m => ({ ...m, [name]: true }));
+  const closeModal = (name) => setModals(m => ({ ...m, [name]: false }));
+
+  // LOG HANDLERS
   const handleSaveLog = (newLog) => {
     if (editingLog) {
-      setLogs(logs.map(l => l.id === newLog.id ? newLog : l)); // Update existing
+      setLogs(logs.map(l => l.id === newLog.id ? newLog : l));
       showToast('✓ لاگ ویرایش شد');
     } else {
-      setLogs([newLog, ...logs]); // Add new
+      setLogs([newLog, ...logs]);
       showToast('✓ لاگ جدید ثبت شد');
     }
-    
     setEditingLog(null);
-    setView('dashboard');
+    closeModal('addLog');
     setShowSave(true);
     setTimeout(()=>setShowSave(false), 2000);
   };
 
   const handleEditLog = (log) => {
     setEditingLog(log);
-    setView('add');
+    openModal('addLog');
   };
 
   const handleDeleteLog = (id) => {
@@ -801,12 +836,24 @@ export default function App() {
     showToast('✕ لاگ حذف شد');
   };
 
+  // NOTE HANDLERS
   const handleSaveNote = (note) => {
-    setNotes([note, ...sessionNotes]);
-    showToast('✓ یادداشت جلسه ذخیره شد');
+    const exists = sessionNotes.find(n => n.id === note.id);
+    if (exists) {
+      setNotes(sessionNotes.map(n => n.id === note.id ? note : n));
+      showToast('✓ یادداشت ویرایش شد');
+    } else {
+      setNotes([note, ...sessionNotes]);
+      showToast('✓ یادداشت جدید ذخیره شد');
+    }
   };
 
-  // 1. PDF Export
+  const handleDeleteNote = (id) => {
+    setNotes(sessionNotes.filter(n => n.id !== id));
+    showToast('✕ یادداشت حذف شد');
+  };
+
+  // EXPORTS
   const handleExportPDF = async () => {
     setExp(true);
     try {
@@ -824,7 +871,6 @@ export default function App() {
     finally { setExp(false); }
   };
 
-  // 2. Print Output
   const handlePrint = () => {
     const printContent = document.getElementById('export-container-data').innerHTML;
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -856,7 +902,6 @@ export default function App() {
     printWindow.document.close();
   };
 
-  // 3. Word Document Export
   const handleExportWord = () => {
     const content = document.getElementById('export-container-data').innerHTML;
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40' dir='rtl'><head><meta charset='utf-8'><title>NAT Report</title><style>body { font-family: Tahoma, Arial, sans-serif; }</style></head><body>`;
@@ -873,54 +918,58 @@ export default function App() {
     showToast('✓ فایل Word دانلود شد');
   };
 
+  if (appLoading) return <InitialLoading />;
+
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
       <PdfTable logs={logs}/>
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
 
-      {view === 'dashboard' && (
-        <>
-          <DashboardView
-            logs={logs} sessionNotes={sessionNotes}
-            onExportPDF={handleExportPDF}
-            onExportWord={handleExportWord}
-            onPrint={handlePrint}
-            isDark={isDark}
-            toggleTheme={()=>setIsDark(!isDark)}
-            isExporting={isExporting}
-            onShowCognitive={()=>setView('cognitive')}
-            onShowNotes={()=>setView('notes')}
-            onEditLog={handleEditLog}
-            onDeleteLog={handleDeleteLog}
-          />
-          <FABMenu
-            onAddLog={() => { setEditingLog(null); setView('add'); }}
-            onAddNote={()=>setView('notes')}
-          />
-        </>
+      {/* Main Dashboard is always rendered underneath to keep state/scroll */}
+      <DashboardView
+        logs={logs} sessionNotes={sessionNotes}
+        onExportPDF={handleExportPDF}
+        onExportWord={handleExportWord}
+        onPrint={handlePrint}
+        isDark={isDark}
+        toggleTheme={()=>setIsDark(!isDark)}
+        isExporting={isExporting}
+        openCognitive={()=>openModal('cognitive')}
+        openNotes={(autoAdd) => {
+          setNotesStartAdding(autoAdd === true);
+          openModal('notes');
+        }}
+        onEditLog={handleEditLog}
+        onDeleteLog={handleDeleteLog}
+      />
+
+      <FABMenu
+        onAddLog={() => { setEditingLog(null); openModal('addLog'); }}
+        onAddNote={() => { setNotesStartAdding(true); openModal('notes'); }}
+      />
+
+      {/* MODALS */}
+      {modals.addLog && (
+        <AddLogModal 
+           initialData={editingLog}
+           onSave={handleSaveLog} 
+           onClose={() => { setEditingLog(null); closeModal('addLog'); }} 
+           isDark={isDark}
+        />
       )}
 
-      {view === 'add' && (
-        <div style={{position:'fixed',inset:0,zIndex:150}}>
-          <AddLogView 
-             initialData={editingLog}
-             onSave={handleSaveLog} 
-             onCancel={() => { setEditingLog(null); setView('dashboard'); }} 
-             isDark={isDark}
-          />
-        </div>
+      {modals.cognitive && (
+        <CognitiveErrorsModal onClose={() => closeModal('cognitive')} isDark={isDark}/>
       )}
 
-      {view === 'cognitive' && (
-        <CognitiveErrorsView onClose={()=>setView('dashboard')} isDark={isDark}/>
-      )}
-
-      {view === 'notes' && (
-        <SessionNotesView
+      {modals.notes && (
+        <SessionNotesModal
           notes={sessionNotes}
+          startAdding={notesStartAdding}
           onSave={handleSaveNote}
-          onClose={()=>setView('dashboard')}
+          onDelete={handleDeleteNote}
+          onClose={() => closeModal('notes')}
           isDark={isDark}
         />
       )}
