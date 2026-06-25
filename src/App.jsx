@@ -76,6 +76,9 @@ const getShamsiParts = () => {
   return { y: val('year'), m: val('month'), d: val('day'), h: val('hour'), min: val('minute') };
 };
 
+// 👑 تبدیل تاریخ شمسی به یک عدد قدرتمند برای سورت کردن (مثلاً 140306251230) 👑
+const getTimestampFromParts = (p) => p.y * 100000000 + p.m * 1000000 + p.d * 10000 + p.h * 100 + p.min;
+
 // تبدیل قطعات به رشته متنی تمیز
 const formatShamsi = ({y, m, d, h, min}) => {
   return `${toPersianNum(d)} ${SHAMSI_MONTHS[m-1]} ${toPersianNum(y)} - ${padZero(h)}:${padZero(min)}`;
@@ -261,6 +264,8 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
   const [a, setA] = useState('');
   const [color, setColor] = useState(NOTE_COLORS[0]);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [editDate, setEditDate] = useState(null); // 👑 نگهداری تاریخ ویرایش 👑
+  const [editTimestamp, setEditTimestamp] = useState(null); // 👑 نگهداری تایم‌ستمپ ویرایش 👑
 
   useEffect(() => {
     setAdding(startAdding);
@@ -285,6 +290,8 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
     setQ(note.question);
     setA(note.answer);
     setColor(note.color);
+    setEditDate(note.date);
+    setEditTimestamp(note.timestamp || parseInt(note.id)); // 👑 استخراج تایم‌ستمپ برای حفظ ترتیب 👑
     setAdding(true);
   };
 
@@ -295,14 +302,17 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
     }
     onSave({
       id: editingId || Date.now().toString(),
-      date: getShamsiNow(),
+      date: editingId ? editDate : getShamsiNow(),
+      timestamp: editingId ? editTimestamp : Date.now(), // 👑 ثبت زمان برای سورت 👑
       question: q.trim(), answer: a.trim(), color
     });
     setQ(''); setA(''); setEditingId(null); setAdding(false);
+    setEditDate(null); setEditTimestamp(null);
   };
 
   const cancelAdd = () => {
     setQ(''); setA(''); setEditingId(null); setAdding(false);
+    setEditDate(null); setEditTimestamp(null);
   };
 
   return (
@@ -396,6 +406,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
 
 const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
   const [dateStr, setDateStr] = useState('');
+  const [dateObj, setDateObj] = useState(null); // 👑 آبجکت تاریخ برای سورت 👑
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState({y: 1403, m: 1, d: 1, h: 12, min: 0});
   
@@ -415,8 +426,11 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
       setHasShame(initialData.hasShame);
       setShameLevel(initialData.shameLevel !== null ? initialData.shameLevel : 50);
       setDateStr(initialData.date);
+      setDateObj(initialData.dateObj || getShamsiParts());
     } else {
-      setDateStr(getShamsiNow());
+      const nowP = getShamsiParts();
+      setDateStr(formatShamsi(nowP));
+      setDateObj(nowP);
     }
   }, [initialData]);
 
@@ -457,6 +471,8 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
     onSave({
       id: initialData ? initialData.id : Date.now().toString(),
       date: dateStr,
+      dateObj: dateObj,
+      timestamp: dateObj ? getTimestampFromParts(dateObj) : Date.now(), // 👑 ثبت کد ریاضی تاریخ برای سورت دقیق 👑
       situation,
       emotions: selectedEmotions,
       thoughts: thoughts.filter(t=>t.text.trim()!==''),
@@ -466,7 +482,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
   };
 
   const openDateModal = () => {
-    setTempDate(getShamsiParts());
+    setTempDate(dateObj || getShamsiParts());
     setShowDatePicker(true);
   };
 
@@ -501,7 +517,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
 
             <div style={{display:'flex',gap:10}}>
               <button onClick={()=>setShowDatePicker(false)} style={{flex:1,padding:'10px',background:bg,color:sub,border:`1px solid ${bd}`,borderRadius:12,fontWeight:700,fontFamily:'Vazirmatn',cursor:'pointer'}}>لغو</button>
-              <button onClick={()=>{ setDateStr(formatShamsi(tempDate)); setShowDatePicker(false); }} style={{flex:2,padding:'10px',background:'#6366f1',color:'white',border:'none',borderRadius:12,fontWeight:700,fontFamily:'Vazirmatn',cursor:'pointer'}}>تایید ✓</button>
+              <button onClick={()=>{ setDateObj(tempDate); setDateStr(formatShamsi(tempDate)); setShowDatePicker(false); }} style={{flex:2,padding:'10px',background:'#6366f1',color:'white',border:'none',borderRadius:12,fontWeight:700,fontFamily:'Vazirmatn',cursor:'pointer'}}>تایید ✓</button>
             </div>
           </div>
         </div>
@@ -523,7 +539,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
               <button onClick={openDateModal} style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,textAlign:'right',fontFamily:'Vazirmatn',cursor:'pointer'}}>
                 {dateStr}
               </button>
-              <button onClick={()=>setDateStr(getShamsiNow())}
+              <button onClick={()=>{ const nowP = getShamsiParts(); setDateObj(nowP); setDateStr(formatShamsi(nowP)); }}
                 style={{flexShrink:0,background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',borderRadius:12,padding:'11px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                 همین الان
               </button>
@@ -939,6 +955,19 @@ export default function App() {
     try { const s=localStorage.getItem('nat_tracker_notes'); return s?JSON.parse(s):[]; } catch{ return []; }
   });
 
+  // 👑 پردازش و سورتینگ نزولی (از جدید به قدیم) با استفاده از تایم‌ستمپ ریاضی 👑
+  const sortedLogs = [...logs].sort((a, b) => {
+    const tA = a.timestamp || parseInt(a.id) || 0;
+    const tB = b.timestamp || parseInt(b.id) || 0;
+    return tB - tA;
+  });
+
+  const sortedNotes = [...sessionNotes].sort((a, b) => {
+    const tA = a.timestamp || parseInt(a.id) || 0;
+    const tB = b.timestamp || parseInt(b.id) || 0;
+    return tB - tA;
+  });
+
   useEffect(() => {
     setTimeout(() => setAppLoading(false), 900);
   }, []);
@@ -1099,17 +1128,15 @@ export default function App() {
         /* حذف فلش‌های بالا و پایین در اینپوت نامبر مرورگرها */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
-        input[type=range]::-moz-range-thumb { 
-          width:24px; height:24px; border-radius:50%; 
-          opacity:0; border:none; cursor:pointer; 
+          -webkit-appearance: none; margin: 0; 
         }
       `}} />
-      <PdfTable logs={logs} sessionNotes={sessionNotes} includeNotesExport={includeNotesExport} />
+      <PdfTable logs={sortedLogs} sessionNotes={sortedNotes} includeNotesExport={includeNotesExport} />
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
 
       <DashboardView
-        logs={logs} sessionNotes={sessionNotes}
+        logs={sortedLogs} sessionNotes={sortedNotes}
         onExportPDF={handleExportPDF}
         onExportWord={handleExportWord}
         onPrint={handlePrint}
@@ -1149,7 +1176,7 @@ export default function App() {
 
       {modals.notes && (
         <SessionNotesModal
-          notes={sessionNotes}
+          notes={sortedNotes}
           startAdding={notesStartAdding}
           onSave={handleSaveNote}
           onDelete={handleDeleteNote}
