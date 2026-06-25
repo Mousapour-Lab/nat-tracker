@@ -124,52 +124,52 @@ const Toast = ({ msg }) => {
   );
 };
 
-// اسلایدر با متد مقیاس معکوس (Scale Inversion)
-// 👑 این روش در استودیوهای رده بالا استفاده می‌شه. مرورگر فکر می‌کنه داره چپ‌به‌راست کار می‌کنه،
-// ولی چشم کاربر یک اسلایدر راست‌به‌چپ با هیت‌باکس ۱۰۰٪ بی‌نقص رو می‌بینه. هیچ نیازی به دستکاری RTL نیست.
-const CustomSlider = ({ value, onChange, label, color = '#6366f1' }) => (
-  <div style={{ width:'100%', marginBottom:16 }}>
-    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:8, color }}>
-      <span>{label}</span>
-      <span>{toPersianNum(value)}%</span>
+// اسلایدر نیتیو + باکس ورود دستی درصد (درخواست کاربر)
+const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => {
+  const handleInputChange = (e) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val)) val = 0;
+    if (val > 100) val = 100;
+    if (val < 0) val = 0;
+    onChange(val);
+  };
+
+  return (
+    <div className="w-full mb-5">
+      <div className="flex justify-between items-center text-xs font-bold mb-3 px-1" style={{color}}>
+        <span>{label}</span>
+        <div style={{display:'flex', alignItems:'center', gap:'6px'}} dir="ltr">
+          <span style={{fontSize: 12, fontWeight: 'bold'}}>%</span>
+          {/* باکس ورود دستی عدد */}
+          <input
+            type="number"
+            min="0" max="100"
+            value={value}
+            onChange={handleInputChange}
+            style={{
+              width: '45px', textAlign: 'center', background: 'rgba(128,128,128,0.1)',
+              border: `1.5px solid ${color}`, borderRadius: '8px', padding: '4px',
+              color: 'inherit', fontSize: '13px', fontWeight:'900', outline:'none'
+            }}
+          />
+        </div>
+      </div>
+      <div style={{ width: '100%', display:'flex', alignItems:'center' }}>
+        {/* اسلایدر استاندارد مرورگر با بک‌گراند داینامیک */}
+        <input
+          type="range" min="0" max="100" value={value}
+          onChange={e => onChange(parseInt(e.target.value))}
+          className="native-slider"
+          dir="rtl"
+          style={{
+            '--slider-color': color,
+            '--slider-fill': `${value}%`
+          }}
+        />
+      </div>
     </div>
-    {/* آینه‌ای کردن کل کانتینر برای فریب دادن موتور تاچ مرورگر */}
-    <div style={{ position:'relative', width:'100%', height:24, borderRadius:12, background:'rgba(128,128,128,0.15)', transform: 'scaleX(-1)' }}>
-      
-      {/* نوار پر شده (چون آینه شده، از دید کاربر از راست پر می‌شه) */}
-      <div style={{
-        position:'absolute', left:0, top:0, height:'100%',
-        width:`${value}%`, borderRadius:12, background:color,
-        pointerEvents:'none', transition:'width .1s ease-out'
-      }}/>
-      
-      {/* thumb سفارشی و نامرئی از نظر تاچ */}
-      <div style={{
-        position:'absolute', top:0,
-        left:`calc(${value}% - 12px)`, /* محاسبه بر اساس چپ (آینه شده) */
-        width:24, height:24, borderRadius:'50%',
-        background:'white', border:`3px solid ${color}`,
-        boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
-        transition:'left .1s ease-out',
-        zIndex:5, pointerEvents:'none'
-      }}/>
-      
-      {/* اینپوت استاندارد LTR. بدون درگیری با باگ‌های RTL */}
-      <input
-        type="range" min="0" max="100"
-        value={value}
-        onChange={e => onChange(parseInt(e.target.value))}
-        style={{
-          position:'absolute', top:0, left:0,
-          width:'100%', height:'100%',
-          opacity: 0, cursor:'pointer',
-          zIndex:10, margin:0, padding:0,
-          WebkitAppearance:'none', appearance:'none'
-        }}
-      />
-    </div>
-  </div>
-);
+  );
+};
 
 // ─────────────────────────── FAB MENU ───────────────────────────
 
@@ -1020,7 +1020,49 @@ export default function App() {
 
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
-      {/* 👑 دیگه نیازی به استایل‌های کثیف WebKit نیست. اسلایدر LTR کاملاً نامرئی کار خودش رو می‌کنه 👑 */}
+      <style dangerouslySetInnerHTML={{__html:`
+        /* استایل‌دهی مستقیم و نیتیو به اسلایدر */
+        .native-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 10px;
+          border-radius: 6px;
+          outline: none;
+          margin: 0;
+          padding: 0;
+          background: linear-gradient(to left, var(--slider-color) var(--slider-fill), rgba(128,128,128,0.15) var(--slider-fill));
+        }
+        .native-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid var(--slider-color);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          cursor: pointer;
+        }
+        .native-slider::-moz-range-thumb {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid var(--slider-color);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          cursor: pointer;
+        }
+        /* حذف فلش‌های بالا و پایین در اینپوت نامبر مرورگرها */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+      `}} />
       <PdfTable logs={logs}/>
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
