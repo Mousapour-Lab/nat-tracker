@@ -6,8 +6,6 @@ import {
   Trash2, Edit2, Printer
 } from 'lucide-react';
 
-// ─────────────────────────── CONSTANTS ───────────────────────────
-
 const EMOTION_COLORS = {
   'اضطراب':     { hex: '#f59e0b', bgL: '#fef3c7', bgD: 'rgba(245,158,11,0.15)', txL: '#92400e', txD: '#fbbf24', bdL: '#fcd34d', bdD: 'rgba(245,158,11,0.35)' },
   'غم':         { hex: '#3b82f6', bgL: '#dbeafe', bgD: 'rgba(59,130,246,0.15)',  txL: '#1e40af', txD: '#60a5fa', bdL: '#93c5fd', bdD: 'rgba(59,130,246,0.35)' },
@@ -53,6 +51,7 @@ const COGNITIVE_ERRORS = [
 ];
 
 const NOTE_COLORS = ['#f59e0b','#22c55e','#3b82f6','#ec4899','#a78bfa','#f97316'];
+const SHAMSI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 
 const loadScript = src => new Promise((res, rej) => {
   if (document.querySelector(`script[src="${src}"]`)) return res();
@@ -62,16 +61,25 @@ const loadScript = src => new Promise((res, rej) => {
 });
 
 const toPersianNum = n => n.toString().replace(/\d/g, x => '۰۱۲۳۴۵۶۷۸۹'[x]);
+const padZero = n => n < 10 ? '۰' + toPersianNum(n) : toPersianNum(n);
 
-// دریافت تاریخ و ساعت دقیق شمسی
-const getShamsiNow = () => {
-  return new Intl.DateTimeFormat('fa-IR', {
-    year: 'numeric', month: 'long', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  }).format(new Date());
+// دریافت قطعات تاریخ شمسی
+const getShamsiParts = () => {
+  const d = new Date();
+  const parts = new Intl.DateTimeFormat('fa-IR-u-nu-latn', {
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', calendar: 'persian'
+  }).formatToParts(d);
+  const val = type => parseInt(parts.find(p => p.type === type)?.value || 0);
+  return { y: val('year'), m: val('month'), d: val('day'), h: val('hour'), min: val('minute') };
 };
 
-// ─────────────────────────── MICRO COMPONENTS ───────────────────────────
+// تبدیل قطعات به رشته متنی تمیز
+const formatShamsi = ({y, m, d, h, min}) => {
+  return `${toPersianNum(d)} ${SHAMSI_MONTHS[m-1]} ${toPersianNum(y)} - ${padZero(h)}:${padZero(min)}`;
+};
+
+const getShamsiNow = () => formatShamsi(getShamsiParts());
 
 const InitialLoading = () => (
   <div style={{position:'fixed',inset:0,background:'#09090b',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
@@ -112,31 +120,30 @@ const Toast = ({ msg }) => {
   );
 };
 
-// اسلایدر بازنویسی شده با پشتیبانی کامل و بی‌نقص RTL
+// اسلایدر فول نیتیو و صد درصد ریسپانسیو (باگ فیکس شده)
 const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
   <div className="w-full mb-4">
     <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
       <span>{label}</span><span>{toPersianNum(value)}%</span>
     </div>
-    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible" dir="rtl"
+    {/* استفاده از رفتار Native مرورگر بجای RotateY */}
+    <div className="relative w-full h-6 rounded-full flex items-center" dir="rtl"
       style={{background:'rgba(128,128,128,0.15)'}}>
       {/* نوار پر شده متصل به راست */}
       <div className="absolute right-0 h-full rounded-full pointer-events-none"
         style={{width:`${value}%`,background:color,transition:'width .1s ease-out'}}/>
       
-      {/* اینپوت اصلی که شفاف شده و تمام عرض رو پوشونده */}
+      {/* اینپوت اصلی که شفاف شده با Z-index بالا برای دریافت تاچ */}
       <input type="range" min="0" max="100" value={value}
         onChange={e=>onChange(parseInt(e.target.value))}
-        className="w-full h-full opacity-0 cursor-pointer z-10 absolute inset-0 m-0" dir="rtl"/>
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer m-0 p-0" style={{zIndex: 50}} dir="rtl"/>
         
       {/* نشانگر یا Thumb سفید رنگ */}
-      <div className="absolute h-6 w-6 rounded-full pointer-events-none z-0 top-0"
-        style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out'}}/>
+      <div className="absolute h-6 w-6 rounded-full pointer-events-none"
+        style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out', zIndex: 10}}/>
     </div>
   </div>
 );
-
-// ─────────────────────────── FAB MENU ───────────────────────────
 
 const FABMenu = ({ onAddLog, onAddNote }) => {
   const [open, setOpen] = useState(false);
@@ -172,8 +179,6 @@ const FABMenu = ({ onAddLog, onAddNote }) => {
     </div>
   );
 };
-
-// ─────────────────────────── MODALS ───────────────────────────
 
 const CognitiveErrorsModal = ({ onClose, isDark }) => {
   const bg   = isDark ? '#09090b' : '#f8fafc';
@@ -324,7 +329,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
               animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{toPersianNum(note.date)}</span>
+                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
                 <div style={{display: 'flex', gap: 8}}>
                   <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
                     <Edit2 size={16}/>
@@ -349,6 +354,9 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
 
 const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
   const [dateStr, setDateStr] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState({y: 1403, m: 1, d: 1, h: 12, min: 0});
+  
   const [situation, setSituation] = useState('');
   const [selectedEmotions, setSelectedEmotions] = useState([]);
   const [customInput, setCustomInput] = useState('');
@@ -364,9 +372,9 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
       setThoughts(initialData.thoughts);
       setHasShame(initialData.hasShame);
       setShameLevel(initialData.shameLevel !== null ? initialData.shameLevel : 50);
-      setDateStr(initialData.date); // Load string directly
+      setDateStr(initialData.date);
     } else {
-      setDateStr(getShamsiNow()); // Set default text natively
+      setDateStr(getShamsiNow());
     }
   }, [initialData]);
 
@@ -375,6 +383,12 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
   const bd   = isDark ? '#27272a' : '#e2e8f0';
   const tx   = isDark ? '#f4f4f5' : '#1e293b';
   const sub  = isDark ? '#a1a1aa' : '#475569';
+
+  const selectStyle = {
+    flex: 1, background: isDark ? '#09090b' : '#f8fafc', color: tx,
+    border: `1px solid ${bd}`, borderRadius: 10, padding: '8px',
+    fontSize: 14, outline: 'none', textAlign: 'center', fontFamily: 'Vazirmatn'
+  };
 
   const toggleEmo = name => {
     const exists = selectedEmotions.find(e=>e.name===name);
@@ -396,7 +410,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
     if (!situation.trim()) return alert('لطفا موقعیت را وارد کنید');
     onSave({
       id: initialData ? initialData.id : Date.now().toString(),
-      date: dateStr || getShamsiNow(), // Save as plain text
+      date: dateStr,
       situation,
       emotions: selectedEmotions,
       thoughts: thoughts.filter(t=>t.text.trim()!==''),
@@ -405,8 +419,51 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
     });
   };
 
+  const openDateModal = () => {
+    setTempDate(getShamsiParts());
+    setShowDatePicker(true);
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)'}}>
+      {/* تقویم شمسی فول کاستوم */}
+      {showDatePicker && (
+        <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>
+          <div style={{background:card,padding:20,borderRadius:20,width:'90%',maxWidth:360,border:`1px solid ${bd}`,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',animation:'popIn .2s ease-out'}}>
+            <h3 style={{color:tx,fontWeight:900,marginBottom:16,textAlign:'center'}}>انتخاب تاریخ و زمان</h3>
+            
+            {/* روز، ماه، سال */}
+            <div style={{display:'flex',gap:8,marginBottom:12}} dir="rtl">
+              <select value={tempDate.d} onChange={e=>setTempDate({...tempDate, d:parseInt(e.target.value)})} style={selectStyle}>
+                {[...Array(31)].map((_,i)=><option key={i+1} value={i+1}>{toPersianNum(i+1)}</option>)}
+              </select>
+              <select value={tempDate.m} onChange={e=>setTempDate({...tempDate, m:parseInt(e.target.value)})} style={selectStyle}>
+                {SHAMSI_MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+              <select value={tempDate.y} onChange={e=>setTempDate({...tempDate, y:parseInt(e.target.value)})} style={selectStyle}>
+                {[...Array(20)].map((_,i)=><option key={1395+i} value={1395+i}>{toPersianNum(1395+i)}</option>)}
+              </select>
+            </div>
+
+            {/* ساعت و دقیقه */}
+            <div style={{display:'flex',gap:8,marginBottom:20}} dir="ltr">
+              <select value={tempDate.h} onChange={e=>setTempDate({...tempDate, h:parseInt(e.target.value)})} style={selectStyle}>
+                {[...Array(24)].map((_,i)=><option key={i} value={i}>{padZero(i)}</option>)}
+              </select>
+              <span style={{color:tx,alignSelf:'center',fontWeight:'bold'}}>:</span>
+              <select value={tempDate.min} onChange={e=>setTempDate({...tempDate, min:parseInt(e.target.value)})} style={selectStyle}>
+                {[...Array(60)].map((_,i)=><option key={i} value={i}>{padZero(i)}</option>)}
+              </select>
+            </div>
+
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setShowDatePicker(false)} style={{flex:1,padding:'10px',background:bg,color:sub,border:`1px solid ${bd}`,borderRadius:12,fontWeight:700,fontFamily:'Vazirmatn',cursor:'pointer'}}>لغو</button>
+              <button onClick={()=>{ setDateStr(formatShamsi(tempDate)); setShowDatePicker(false); }} style={{flex:2,padding:'10px',background:'#6366f1',color:'white',border:'none',borderRadius:12,fontWeight:700,fontFamily:'Vazirmatn',cursor:'pointer'}}>تایید ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{background:bg,minHeight:'100vh',width:'100%',maxWidth:520,margin:'0 auto',display:'flex',flexDirection:'column',animation:'slideInUp .3s ease-out'}}>
         {/* Header */}
         <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -419,12 +476,13 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
 
         {/* Body */}
         <div style={{padding:'24px 20px',flex:1}}>
-          {/* Date */}
+          {/* Date Picker Button */}
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۱. تاریخ و ساعت</h3>
             <div style={{display:'flex',gap:8}}>
-              <input type="text" value={dateStr} onChange={e=>setDateStr(e.target.value)}
-                style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,outline:'none',fontFamily:'Vazirmatn, sans-serif'}} dir="rtl"/>
+              <button onClick={openDateModal} style={{flex:1,background:card,border:`1px solid ${bd}`,borderRadius:12,padding:'11px 14px',color:tx,fontSize:13,textAlign:'right',fontFamily:'Vazirmatn',cursor:'pointer'}}>
+                {dateStr}
+              </button>
               <button onClick={()=>setDateStr(getShamsiNow())}
                 style={{flexShrink:0,background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',borderRadius:12,padding:'11px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                 همین الان
@@ -551,8 +609,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
     </div>
   );
 };
-
-// ─────────────────────────── DASHBOARD VIEW ───────────────────────────
 
 const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog }) => {
   const logsWithShame = logs.filter(l=>l.hasShame&&l.shameLevel!=null);
@@ -740,8 +796,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
   );
 };
 
-// ─────────────────────────── PDF EXPORT TABLE (HIDDEN) ───────────────────────────
-
 const PdfTable = ({ logs }) => (
   <div id="export-container-data" style={{position:'absolute',left:-9999,top:0,width:860,background:'white',color:'black',padding:36,fontFamily:'Vazirmatn,serif'}} dir="rtl">
     <h1 style={{textAlign:'center',fontSize:22,fontWeight:900,marginBottom:24,borderBottom:'2px solid #e2e8f0',paddingBottom:12}}>گزارش NAT Tracker</h1>
@@ -781,12 +835,9 @@ const PdfTable = ({ logs }) => (
   </div>
 );
 
-// ─────────────────────────── APP ───────────────────────────
-
 export default function App() {
   const [appLoading, setAppLoading] = useState(true);
   
-  // Modal states instead of single "view" state
   const [modals, setModals] = useState({ addLog: false, cognitive: false, notes: false });
   const [notesStartAdding, setNotesStartAdding] = useState(false);
   const [editingLog, setEditingLog] = useState(null);
@@ -805,12 +856,10 @@ export default function App() {
     try { const s=localStorage.getItem('nat_tracker_notes'); return s?JSON.parse(s):[]; } catch{ return []; }
   });
 
-  // App initialization loading simulation
   useEffect(() => {
     setTimeout(() => setAppLoading(false), 900);
   }, []);
 
-  // Sync to local storage
   useEffect(()=>{ localStorage.setItem('nat_tracker_logs',JSON.stringify(logs)); }, [logs]);
   useEffect(()=>{ localStorage.setItem('nat_tracker_notes',JSON.stringify(sessionNotes)); }, [sessionNotes]);
 
@@ -823,7 +872,6 @@ export default function App() {
   const openModal = (name) => setModals(m => ({ ...m, [name]: true }));
   const closeModal = (name) => setModals(m => ({ ...m, [name]: false }));
 
-  // LOG HANDLERS
   const handleSaveLog = (newLog) => {
     if (editingLog) {
       setLogs(logs.map(l => l.id === newLog.id ? newLog : l));
@@ -848,7 +896,6 @@ export default function App() {
     showToast('✕ لاگ حذف شد');
   };
 
-  // NOTE HANDLERS
   const handleSaveNote = (note) => {
     const exists = sessionNotes.find(n => n.id === note.id);
     if (exists) {
@@ -865,7 +912,6 @@ export default function App() {
     showToast('✕ یادداشت حذف شد');
   };
 
-  // EXPORTS
   const handleExportPDF = async () => {
     setExp(true);
     try {
@@ -938,7 +984,6 @@ export default function App() {
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
 
-      {/* Main Dashboard is always rendered underneath to keep state/scroll */}
       <DashboardView
         logs={logs} sessionNotes={sessionNotes}
         onExportPDF={handleExportPDF}
@@ -961,7 +1006,6 @@ export default function App() {
         onAddNote={() => { setNotesStartAdding(true); openModal('notes'); }}
       />
 
-      {/* MODALS */}
       {modals.addLog && (
         <AddLogModal 
            initialData={editingLog}
