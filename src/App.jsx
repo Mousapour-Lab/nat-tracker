@@ -639,13 +639,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
           }}>
             {initialData ? 'بروزرسانی لاگ ✓' : 'ثبت لاگ ✓'}
           </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog, showToast }) => {
+const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog, showToast, includeNotesExport, setIncludeNotesExport }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   const logsWithShame = logs.filter(l=>l.hasShame&&l.shameLevel!=null);
@@ -660,7 +654,14 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
   return (
     <div style={{minHeight:'100vh',paddingBottom:100,background:bg,transition:'background .3s'}}>
       <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,0.9)':'rgba(248,250,252,0.9)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',gap:6}}>
+        <div style={{display:'flex',gap:6, alignItems: 'center'}}>
+          
+          {/* دکمه انتخاب یادداشت‌ها در خروجی */}
+          <label style={{display:'flex', alignItems:'center', gap:6, color:tx, fontSize:11, fontWeight:700, cursor:'pointer', marginLeft: 8, background:isDark?'#27272a':'#e2e8f0', padding:'6px 10px', borderRadius:8}}>
+            <input type="checkbox" checked={includeNotesExport} onChange={e => setIncludeNotesExport(e.target.checked)} style={{cursor:'pointer'}} />
+            چاپ جلسه
+          </label>
+
           <button onClick={onPrint} title="پرینت مستقیم" style={{
             display:'flex',alignItems:'center',justifyContent:'center',
             background:'none',border:`1px solid ${bd}`,borderRadius:10,
@@ -750,16 +751,22 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
 
                   <p style={{color:tx,fontSize:13,lineHeight:1.7,marginBottom:16,fontWeight:500}}>{log.situation}</p>
 
-                  {topEmo&&(
+                  {/* Emotion tags (نمایش تمامی هیجان‌ها) */}
+                  {log.emotions && log.emotions.length > 0 && (
                     <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}}>
-                      <span style={{
-                        background:ec.bg,color:ec.tx, border:`1.5px solid ${ec.bd}`,
-                        fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20,
-                        display:'flex',alignItems:'center',gap:4
-                      }}>
-                        <span style={{width:7,height:7,borderRadius:'50%',background:ec.hex,flexShrink:0}}/>
-                        {topEmo.name} {toPersianNum(topEmo.intensity)}٪
-                      </span>
+                      {log.emotions.map(emo => {
+                        const ec = getEC(emo.name, isDark);
+                        return (
+                          <span key={emo.name} style={{
+                            background:ec.bg,color:ec.tx, border:`1.5px solid ${ec.bd}`,
+                            fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20,
+                            display:'flex',alignItems:'center',gap:4
+                          }}>
+                            <span style={{width:7,height:7,borderRadius:'50%',background:ec.hex,flexShrink:0}}/>
+                            {emo.name} {toPersianNum(emo.intensity)}٪
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -836,27 +843,30 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
   );
 };
 
-const PdfTable = ({ logs }) => (
+// بروزرسانی بخش PDF برای نمایش کامل هیجان‌ها و اضافه کردن جدول تکالیف جلسه
+const PdfTable = ({ logs, sessionNotes, includeNotesExport }) => (
   <div id="export-container-data" style={{position:'absolute',left:-9999,top:0,width:860,background:'white',color:'black',padding:36,fontFamily:'Vazirmatn,serif'}} dir="rtl">
     <h1 style={{textAlign:'center',fontSize:22,fontWeight:900,marginBottom:24,borderBottom:'2px solid #e2e8f0',paddingBottom:12}}>گزارش NAT Tracker</h1>
-    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,textAlign:'right'}}>
+    
+    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,textAlign:'right',marginBottom:32}}>
       <thead>
         <tr style={{background:'#f8fafc'}}>
           <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'14%'}}>تاریخ و ساعت</th>
-          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'30%'}}>موقعیت</th>
-          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'14%'}}>هیجان غالب</th>
-          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'30%'}}>افکار</th>
-          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'12%',textAlign:'center'}}>شرم</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'28%'}}>موقعیت</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'16%'}}>هیجان‌ها</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'32%'}}>افکار</th>
+          <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'10%',textAlign:'center'}}>شرم</th>
         </tr>
       </thead>
       <tbody>
         {logs.map(log=>{
-          const top = log.emotions.length>0?log.emotions.reduce((p,c)=>p.intensity>c.intensity?p:c):null;
           return (
             <tr key={log.id}>
               <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>{toPersianNum(log.date)}</td>
               <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',lineHeight:1.7}}>{log.situation}</td>
-              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>{top?`${top.name} (${toPersianNum(top.intensity)}%)`:'—'}</td>
+              <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',lineHeight:1.7}}>
+                {log.emotions.length > 0 ? log.emotions.map(e => `${e.name} (${toPersianNum(e.intensity)}%)`).join('، ') : '—'}
+              </td>
               <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>
                 <ul style={{paddingRight:16,margin:0}}>
                   {log.thoughts.map((t,i)=>(
@@ -865,13 +875,38 @@ const PdfTable = ({ logs }) => (
                 </ul>
               </td>
               <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',textAlign:'center',fontWeight:700}}>
-                {log.hasShame&&log.shameLevel!=null?`${toPersianNum(log.shameLevel)}%`:'نداشت'}
+                {log.hasShame&&log.shameLevel!=null?`${toPersianNum(log.shameLevel)}%`:'-'}
               </td>
             </tr>
           );
         })}
       </tbody>
     </table>
+
+    {/* نمایش جدول تکالیف جلسه در صورت انتخاب شدن */}
+    {includeNotesExport && sessionNotes && sessionNotes.length > 0 && (
+      <div>
+        <h2 style={{fontSize: 18, fontWeight: 900, marginBottom: 16, borderBottom: '2px solid #e2e8f0', paddingBottom: 8}}>یادداشت‌های جلسه / تکالیف</h2>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,textAlign:'right'}}>
+          <thead>
+            <tr style={{background:'#f8fafc'}}>
+              <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'15%'}}>تاریخ</th>
+              <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'40%'}}>سوال / تکلیف تراپیست</th>
+              <th style={{border:'1px solid #e2e8f0',padding:'10px 12px',fontWeight:800,width:'45%'}}>پاسخ من</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessionNotes.map(n => (
+              <tr key={n.id}>
+                <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top'}}>{toPersianNum(n.date)}</td>
+                <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',lineHeight:1.7}}>{n.question}</td>
+                <td style={{border:'1px solid #e2e8f0',padding:'10px 12px',verticalAlign:'top',lineHeight:1.7}}>{n.answer}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 );
 
@@ -886,6 +921,8 @@ export default function App() {
   const [isExporting, setExp]   = useState(false);
   const [showSave, setShowSave] = useState(false);
   const [toast, setToast]       = useState('');
+  const [includeNotesExport, setIncludeNotesExport] = useState(true); // استیت برای چک‌باکس خروجی
+
   const toastTimer = useRef(null);
 
   const [logs, setLogs] = useState(()=>{
@@ -1056,14 +1093,12 @@ export default function App() {
         /* حذف فلش‌های بالا و پایین در اینپوت نامبر مرورگرها */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
-          -webkit-appearance: none; 
-          margin: 0; 
-        }
-        input[type=number] {
-          -moz-appearance: textfield;
+        input[type=range]::-moz-range-thumb { 
+          width:24px; height:24px; border-radius:50%; 
+          opacity:0; border:none; cursor:pointer; 
         }
       `}} />
-      <PdfTable logs={logs}/>
+      <PdfTable logs={logs} sessionNotes={sessionNotes} includeNotesExport={includeNotesExport} />
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
 
@@ -1083,6 +1118,8 @@ export default function App() {
         onEditLog={handleEditLog}
         onDeleteLog={handleDeleteLog}
         showToast={showToast}
+        includeNotesExport={includeNotesExport}
+        setIncludeNotesExport={setIncludeNotesExport}
       />
 
       <FABMenu
