@@ -980,6 +980,18 @@ export default function App() {
 
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
+      <style dangerouslySetInnerHTML={{__html:`
+        /* Thumb مخفی ولی قابل لمس */
+        input[type=range]::-webkit-slider-thumb { 
+          -webkit-appearance:none; 
+          width:24px; height:24px; border-radius:50%; 
+          opacity:0; cursor:pointer; 
+        }
+        input[type=range]::-moz-range-thumb { 
+          width:24px; height:24px; border-radius:50%; 
+          opacity:0; border:none; cursor:pointer; 
+        }
+      `}} />
       <PdfTable logs={logs}/>
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
