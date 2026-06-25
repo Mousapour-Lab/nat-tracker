@@ -124,26 +124,44 @@ const Toast = ({ msg }) => {
   );
 };
 
-// اسلایدر فول نیتیو (AAA Standard) - بدون هیچ هک و لایه اضافی
+// اسلایدر با منطق Inversion (روش Battle-Tested و ضدگلوله)
 const CustomSlider = ({ value, onChange, label, color = '#6366f1' }) => (
   <div style={{ width:'100%', marginBottom:16 }}>
     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:8, color }}>
       <span>{label}</span>
       <span>{toPersianNum(value)}%</span>
     </div>
-    <input
-      type="range"
-      min="0"
-      max="100"
-      value={value}
-      onChange={e => onChange(parseInt(e.target.value))}
-      className="aaa-slider"
-      dir="rtl"
-      style={{
-        '--slider-color': color,
-        '--slider-fill': `${value}%`
-      }}
-    />
+    <div style={{ position:'relative', width:'100%', height:24, borderRadius:12, background:'rgba(128,128,128,0.15)' }}>
+      {/* نوار پر شده از راست */}
+      <div style={{
+        position:'absolute', right:0, top:0, height:'100%',
+        width:`${value}%`, borderRadius:12, background:color,
+        pointerEvents:'none', transition:'width .1s ease-out'
+      }}/>
+      {/* thumb سفارشی */}
+      <div style={{
+        position:'absolute', top:0,
+        right:`calc(${value}% - 12px)`,
+        width:24, height:24, borderRadius:'50%',
+        background:'white', border:`3px solid ${color}`,
+        boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
+        transition:'right .1s ease-out',
+        zIndex:5, pointerEvents:'none'
+      }}/>
+      {/* اینپوت شفاف روی همه چیز */}
+      <input
+        type="range" min="0" max="100"
+        value={100 - value}
+        onChange={e => onChange(100 - parseInt(e.target.value))}
+        style={{
+          position:'absolute', top:0, left:0,
+          width:'100%', height:'100%',
+          opacity:0, cursor:'pointer',
+          zIndex:10, margin:0, padding:0,
+          WebkitAppearance:'none', appearance:'none'
+        }}
+      />
+    </div>
   </div>
 );
 
@@ -966,38 +984,16 @@ export default function App() {
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
       <style dangerouslySetInnerHTML={{__html:`
-        /* استایل‌دهی مستقیم و نیتیو به اسلایدر */
-        .aaa-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 24px;
-          border-radius: 12px;
-          outline: none;
-          margin: 0;
-          padding: 0;
-          direction: rtl;
-          background: linear-gradient(to left, var(--slider-color) var(--slider-fill), rgba(128,128,128,0.15) var(--slider-fill));
+        input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-thumb { 
+          -webkit-appearance:none; 
+          width:24px; height:24px; border-radius:50%; 
+          opacity:0; cursor:pointer; 
         }
-        .aaa-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: white;
-          border: 3px solid var(--slider-color);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          cursor: pointer;
-        }
-        .aaa-slider::-moz-range-thumb {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: white;
-          border: 3px solid var(--slider-color);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          cursor: pointer;
+        input[type=range]::-moz-range-thumb { 
+          width:24px; height:24px; border-radius:50%; 
+          opacity:0; border:none; cursor:pointer; 
         }
       `}} />
       <PdfTable logs={logs}/>
