@@ -6,6 +6,8 @@ import {
   Trash2, Edit2, Printer
 } from 'lucide-react';
 
+// ─────────────────────────── CONSTANTS ───────────────────────────
+
 const EMOTION_COLORS = {
   'اضطراب':     { hex: '#f59e0b', bgL: '#fef3c7', bgD: 'rgba(245,158,11,0.15)', txL: '#92400e', txD: '#fbbf24', bdL: '#fcd34d', bdD: 'rgba(245,158,11,0.35)' },
   'غم':         { hex: '#3b82f6', bgL: '#dbeafe', bgD: 'rgba(59,130,246,0.15)',  txL: '#1e40af', txD: '#60a5fa', bdL: '#93c5fd', bdD: 'rgba(59,130,246,0.35)' },
@@ -81,6 +83,8 @@ const formatShamsi = ({y, m, d, h, min}) => {
 
 const getShamsiNow = () => formatShamsi(getShamsiParts());
 
+// ─────────────────────────── MICRO COMPONENTS ───────────────────────────
+
 const InitialLoading = () => (
   <div style={{position:'fixed',inset:0,background:'#09090b',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
     <Brain size={64} color="#6366f1" style={{animation:'pulse-ring 1.5s infinite ease-out'}} />
@@ -120,27 +124,48 @@ const Toast = ({ msg }) => {
   );
 };
 
-// اسلایدر فول نیتیو و صد درصد ریسپانسیو (باگ فیکس شده)
-const CustomSlider = ({ value, onChange, label, color='#6366f1' }) => (
-  <div className="w-full mb-4">
-    <div className="flex justify-between text-xs font-bold mb-2 px-1" style={{color}}>
-      <span>{label}</span><span>{toPersianNum(value)}%</span>
+// اسلایدر فول نیتیو با منطق Inversion (ضدگلوله شده با Inline Styles)
+const CustomSlider = ({ value, onChange, label, color = '#6366f1' }) => (
+  <div style={{ width:'100%', marginBottom:16 }}>
+    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:8, color }}>
+      <span>{label}</span>
+      <span>{toPersianNum(value)}%</span>
     </div>
-    <div className="relative w-full h-6 rounded-full flex items-center overflow-visible"
-      style={{background:'rgba(128,128,128,0.15)'}}>
-      <div className="absolute right-0 h-full rounded-full pointer-events-none"
-        style={{width:`${value}%`,background:color,transition:'width .1s ease-out'}}/>
-      
-      <div className="absolute h-6 w-6 rounded-full pointer-events-none"
-        style={{right:`calc(${value}% - 12px)`,background:'white',border:`3px solid ${color}`,boxShadow:'0 2px 8px rgba(0,0,0,0.2)',transition:'right .1s ease-out', zIndex: 10}}/>
-        
-      <input type="range" min="0" max="100" value={100 - value}
-        onChange={e=>onChange(100 - parseInt(e.target.value))}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer m-0 p-0" 
-        style={{zIndex: 50, WebkitAppearance: 'none', appearance: 'none'}} />
+    <div style={{ position:'relative', width:'100%', height:24, borderRadius:12, background:'rgba(128,128,128,0.15)' }}>
+      {/* نوار پر شده از راست */}
+      <div style={{
+        position:'absolute', right:0, top:0, height:'100%',
+        width:`${value}%`, borderRadius:12, background:color,
+        pointerEvents:'none', transition:'width .1s ease-out'
+      }}/>
+      {/* thumb سفارشی */}
+      <div style={{
+        position:'absolute', top:0,
+        right:`calc(${value}% - 12px)`,
+        width:24, height:24, borderRadius:'50%',
+        background:'white', border:`3px solid ${color}`,
+        boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
+        transition:'right .1s ease-out',
+        zIndex:5, pointerEvents:'none'
+      }}/>
+      {/* اینپوت شفاف روی همه چیز */}
+      <input
+        type="range" min="0" max="100"
+        value={100 - value}
+        onChange={e => onChange(100 - parseInt(e.target.value))}
+        style={{
+          position:'absolute', top:0, left:0,
+          width:'100%', height:'100%',
+          opacity:0, cursor:'pointer',
+          zIndex:10, margin:0, padding:0,
+          WebkitAppearance:'none', appearance:'none'
+        }}
+      />
     </div>
   </div>
 );
+
+// ─────────────────────────── FAB MENU ───────────────────────────
 
 const FABMenu = ({ onAddLog, onAddNote }) => {
   const [open, setOpen] = useState(false);
@@ -176,6 +201,8 @@ const FABMenu = ({ onAddLog, onAddNote }) => {
     </div>
   );
 };
+
+// ─────────────────────────── MODALS ───────────────────────────
 
 const CognitiveErrorsModal = ({ onClose, isDark }) => {
   const bg   = isDark ? '#09090b' : '#f8fafc';
@@ -228,7 +255,6 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
   const [a, setA] = useState('');
   const [color, setColor] = useState(NOTE_COLORS[0]);
 
-  // رفع باگ سینک شدن وضعیت Add
   useEffect(() => {
     setAdding(startAdding);
   }, [startAdding]);
@@ -259,7 +285,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
     if (!q.trim() || !a.trim()) return;
     onSave({
       id: editingId || Date.now().toString(),
-      date: getShamsiNow(), // ذخیره مستقیم رشته شمسی
+      date: getShamsiNow(),
       question: q.trim(), answer: a.trim(), color
     });
     setQ(''); setA(''); setEditingId(null); setAdding(false);
@@ -326,7 +352,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
               animation:`fadeSlideIn .3s ease-out ${i*0.05}s both`
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{note.date}</span>
+                <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{toPersianNum(note.date)}</span>
                 <div style={{display: 'flex', gap: 8}}>
                   <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
                     <Edit2 size={16}/>
@@ -423,13 +449,11 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{background:isDark?'rgba(0,0,0,0.85)':'rgba(0,0,0,0.4)',backdropFilter:'blur(8px)'}}>
-      {/* تقویم شمسی فول کاستوم */}
       {showDatePicker && (
         <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>
           <div style={{background:card,padding:20,borderRadius:20,width:'90%',maxWidth:360,border:`1px solid ${bd}`,boxShadow:'0 10px 40px rgba(0,0,0,0.5)',animation:'popIn .2s ease-out'}}>
             <h3 style={{color:tx,fontWeight:900,marginBottom:16,textAlign:'center'}}>انتخاب تاریخ و زمان</h3>
             
-            {/* روز، ماه، سال */}
             <div style={{display:'flex',gap:8,marginBottom:12}} dir="rtl">
               <select value={tempDate.d} onChange={e=>setTempDate({...tempDate, d:parseInt(e.target.value)})} style={selectStyle}>
                 {[...Array(31)].map((_,i)=><option key={i+1} value={i+1}>{toPersianNum(i+1)}</option>)}
@@ -442,7 +466,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
               </select>
             </div>
 
-            {/* ساعت و دقیقه */}
             <div style={{display:'flex',gap:8,marginBottom:20}} dir="ltr">
               <select value={tempDate.h} onChange={e=>setTempDate({...tempDate, h:parseInt(e.target.value)})} style={selectStyle}>
                 {[...Array(24)].map((_,i)=><option key={i} value={i}>{padZero(i)}</option>)}
@@ -462,7 +485,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
       )}
 
       <div style={{background:bg,minHeight:'100vh',width:'100%',maxWidth:520,margin:'0 auto',display:'flex',flexDirection:'column',animation:'slideInUp .3s ease-out'}}>
-        {/* Header */}
         <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,.92)':'rgba(248,250,252,.92)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <button onClick={onClose} style={{color:sub,fontSize:14,fontWeight:600,background:'none',border:'none',cursor:'pointer'}}>لغو ✕</button>
           <h1 style={{color:tx,fontWeight:900,fontSize:17,display:'flex',alignItems:'center',gap:8}}>
@@ -471,9 +493,7 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
           <div style={{width:40}}/>
         </div>
 
-        {/* Body */}
         <div style={{padding:'24px 20px',flex:1}}>
-          {/* Date Picker Button */}
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۱. تاریخ و ساعت</h3>
             <div style={{display:'flex',gap:8}}>
@@ -487,7 +507,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
             </div>
           </div>
 
-          {/* Situation */}
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:8}}>۲. موقعیت</h3>
             <textarea value={situation} onChange={e=>setSituation(e.target.value)}
@@ -496,7 +515,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
             />
           </div>
 
-          {/* Emotions */}
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:10}}>۳. هیجان‌ها</h3>
             <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:14}}>
@@ -540,7 +558,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
             </div>
           </div>
 
-          {/* Thoughts */}
           <div style={{marginBottom:24}}>
             <h3 style={{color:sub,fontSize:12,fontWeight:700,marginBottom:10}}>۴. افکار</h3>
             <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:10}}>
@@ -568,7 +585,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
             </button>
           </div>
 
-          {/* Shame */}
           <div style={{background:card,border:`1px solid ${bd}`,borderRadius:14,padding:16,marginBottom:24}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:hasShame?14:0}}>
               <h3 style={{color:sub,fontSize:12,fontWeight:700}}>۵. میزان شرم</h3>
@@ -591,7 +607,6 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
           </div>
         </div>
 
-        {/* Save Button */}
         <div style={{padding:'14px 20px',borderTop:`1px solid ${bd}`,background:card}}>
           <button onClick={handleSave} style={{
             width:'100%',background:'#6366f1',color:'white',
@@ -619,7 +634,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
 
   return (
     <div style={{minHeight:'100vh',paddingBottom:100,background:bg,transition:'background .3s'}}>
-      {/* Header */}
       <div style={{position:'sticky',top:0,zIndex:10,background:isDark?'rgba(9,9,11,0.9)':'rgba(248,250,252,0.9)',backdropFilter:'blur(14px)',borderBottom:`1px solid ${bd}`,padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div style={{display:'flex',gap:6}}>
           <button onClick={onPrint} title="پرینت مستقیم" style={{
@@ -653,7 +667,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
       </div>
 
       <div style={{padding:'20px',maxWidth:900,margin:'0 auto'}}>
-        {/* Summary Cards */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:24}}>
           <div style={{background:card,border:`1px solid ${bd}`,borderRadius:20,padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',boxShadow:isDark?'0 4px 20px rgba(0,0,0,0.3)':'0 2px 12px rgba(0,0,0,0.06)'}}>
             <span style={{color:sub,fontSize:12,marginBottom:4}}>تعداد ثبت‌ها</span>
@@ -665,7 +678,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
           </div>
         </div>
 
-        {/* Logs Grid */}
         <h2 style={{color:tx,fontWeight:900,fontSize:18,marginBottom:14}}>ثبت‌های من</h2>
         
         {logs.length === 0 ? (
@@ -686,7 +698,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                   animation:`fadeSlideIn .4s ease-out ${li*0.06}s both`,
                   boxShadow:isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.04)'
                 }}>
-                  {/* Top row */}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                     <span style={{color:sub,fontSize:11,display:'flex',alignItems:'center',gap:4}}>
                       <Clock size={11}/> {toPersianNum(log.date)}
@@ -700,10 +711,8 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                     )}
                   </div>
 
-                  {/* Situation */}
                   <p style={{color:tx,fontSize:13,lineHeight:1.7,marginBottom:16,fontWeight:500}}>{log.situation}</p>
 
-                  {/* Emotion tag */}
                   {topEmo&&(
                     <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}}>
                       <span style={{
@@ -717,7 +726,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                     </div>
                   )}
 
-                  {/* THOUGHTS UI */}
                   {log.thoughts&&log.thoughts.length>0&&(
                     <div style={{marginTop: 'auto', paddingTop: 16, borderTop: `1px solid ${bd}`}}>
                       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
@@ -743,7 +751,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                             borderRadius: 14, padding: '12px 14px',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10
                           }}>
-                            {/* Pill */}
                             <span style={{
                               background: isDark ? '#09090b' : '#e2e8f0', color: tx, fontSize: 11, fontWeight: 700,
                               padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap'
@@ -762,7 +769,6 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
         )}
       </div>
 
-      {/* Bottom Nav */}
       <div style={{
         position:'fixed',bottom:0,width:'100%',
         background:isDark?'rgba(9,9,11,0.95)':'rgba(255,255,255,0.95)', backdropFilter:'blur(12px)',
@@ -978,6 +984,8 @@ export default function App() {
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
       <style dangerouslySetInnerHTML={{__html:`
+        input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+        input[type=range]:focus { outline: none; }
         input[type=range]::-webkit-slider-thumb { 
           -webkit-appearance:none; 
           width:24px; height:24px; border-radius:50%; 
