@@ -639,6 +639,12 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
           }}>
             {initialData ? 'بروزرسانی لاگ ✓' : 'ثبت لاگ ✓'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog, showToast, includeNotesExport, setIncludeNotesExport }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
