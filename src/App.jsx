@@ -124,39 +124,45 @@ const Toast = ({ msg }) => {
   );
 };
 
-// اسلایدر با منطق Inversion (روش Battle-Tested و ضدگلوله)
+// اسلایدر با متد مقیاس معکوس (Scale Inversion)
+// 👑 این روش در استودیوهای رده بالا استفاده می‌شه. مرورگر فکر می‌کنه داره چپ‌به‌راست کار می‌کنه،
+// ولی چشم کاربر یک اسلایدر راست‌به‌چپ با هیت‌باکس ۱۰۰٪ بی‌نقص رو می‌بینه. هیچ نیازی به دستکاری RTL نیست.
 const CustomSlider = ({ value, onChange, label, color = '#6366f1' }) => (
   <div style={{ width:'100%', marginBottom:16 }}>
     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:8, color }}>
       <span>{label}</span>
       <span>{toPersianNum(value)}%</span>
     </div>
-    <div style={{ position:'relative', width:'100%', height:24, borderRadius:12, background:'rgba(128,128,128,0.15)' }}>
-      {/* نوار پر شده از راست */}
+    {/* آینه‌ای کردن کل کانتینر برای فریب دادن موتور تاچ مرورگر */}
+    <div style={{ position:'relative', width:'100%', height:24, borderRadius:12, background:'rgba(128,128,128,0.15)', transform: 'scaleX(-1)' }}>
+      
+      {/* نوار پر شده (چون آینه شده، از دید کاربر از راست پر می‌شه) */}
       <div style={{
-        position:'absolute', right:0, top:0, height:'100%',
+        position:'absolute', left:0, top:0, height:'100%',
         width:`${value}%`, borderRadius:12, background:color,
         pointerEvents:'none', transition:'width .1s ease-out'
       }}/>
-      {/* thumb سفارشی */}
+      
+      {/* thumb سفارشی و نامرئی از نظر تاچ */}
       <div style={{
         position:'absolute', top:0,
-        right:`calc(${value}% - 12px)`,
+        left:`calc(${value}% - 12px)`, /* محاسبه بر اساس چپ (آینه شده) */
         width:24, height:24, borderRadius:'50%',
         background:'white', border:`3px solid ${color}`,
         boxShadow:'0 2px 8px rgba(0,0,0,0.2)',
-        transition:'right .1s ease-out',
+        transition:'left .1s ease-out',
         zIndex:5, pointerEvents:'none'
       }}/>
-      {/* اینپوت شفاف روی همه چیز */}
+      
+      {/* اینپوت استاندارد LTR. بدون درگیری با باگ‌های RTL */}
       <input
         type="range" min="0" max="100"
-        value={100 - value}
-        onChange={e => onChange(100 - parseInt(e.target.value))}
+        value={value}
+        onChange={e => onChange(parseInt(e.target.value))}
         style={{
           position:'absolute', top:0, left:0,
           width:'100%', height:'100%',
-          opacity:0, cursor:'pointer',
+          opacity: 0, cursor:'pointer',
           zIndex:10, margin:0, padding:0,
           WebkitAppearance:'none', appearance:'none'
         }}
@@ -248,12 +254,13 @@ const CognitiveErrorsModal = ({ onClose, isDark }) => {
   );
 };
 
-const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAdding }) => {
+const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAdding, showToast }) => {
   const [adding, setAdding] = useState(startAdding);
   const [editingId, setEditingId] = useState(null);
   const [q, setQ] = useState('');
   const [a, setA] = useState('');
   const [color, setColor] = useState(NOTE_COLORS[0]);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     setAdding(startAdding);
@@ -282,7 +289,10 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
   };
 
   const handleSave = () => {
-    if (!q.trim() || !a.trim()) return;
+    if (!q.trim() || !a.trim()) {
+      showToast('لطفا فیلدهای سوال و جواب را پر کنید');
+      return;
+    }
     onSave({
       id: editingId || Date.now().toString(),
       date: getShamsiNow(),
@@ -353,13 +363,22 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                 <span style={{background:note.color+'25',color:note.color,fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:20}}>{toPersianNum(note.date)}</span>
-                <div style={{display: 'flex', gap: 8}}>
-                  <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
-                    <Edit2 size={16}/>
-                  </button>
-                  <button onClick={() => {if(window.confirm('یادداشت حذف شود؟')) onDelete(note.id)}} style={{color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="حذف">
-                    <Trash2 size={16}/>
-                  </button>
+                <div style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+                  {deleteConfirm === note.id ? (
+                    <>
+                      <button onClick={() => { onDelete(note.id); setDeleteConfirm(null); }} style={{background:'#ef4444',color:'white',border:'none',padding:'4px 8px',borderRadius:6,fontSize:11,fontWeight:700,cursor:'pointer'}}>حذف</button>
+                      <button onClick={() => setDeleteConfirm(null)} style={{background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',padding:'4px 8px',borderRadius:6,fontSize:11,fontWeight:700,cursor:'pointer'}}>لغو</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleEditReq(note)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
+                        <Edit2 size={16}/>
+                      </button>
+                      <button onClick={() => setDeleteConfirm(note.id)} style={{color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="حذف">
+                        <Trash2 size={16}/>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <div style={{background:note.color+'15',borderRadius:10,padding:'10px 14px',marginBottom:10,border:`1px solid ${note.color}35`}}>
@@ -375,7 +394,7 @@ const SessionNotesModal = ({ notes, onSave, onDelete, onClose, isDark, startAddi
   );
 };
 
-const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
+const AddLogModal = ({ onSave, onClose, isDark, initialData, showToast }) => {
   const [dateStr, setDateStr] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState({y: 1403, m: 1, d: 1, h: 12, min: 0});
@@ -430,7 +449,11 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
   };
 
   const handleSave = () => {
-    if (!situation.trim()) return alert('لطفا موقعیت را وارد کنید');
+    // 👑 جایگزینی alert بلاک‌شده در محیط‌های سَندباکس 👑
+    if (!situation.trim()) {
+      showToast('لطفا موقعیت را وارد کنید تا لاگ ثبت شود.');
+      return;
+    }
     onSave({
       id: initialData ? initialData.id : Date.now().toString(),
       date: dateStr,
@@ -622,7 +645,9 @@ const AddLogModal = ({ onSave, onClose, isDark, initialData }) => {
   );
 };
 
-const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog }) => {
+const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint, isDark, toggleTheme, isExporting, openCognitive, openNotes, onEditLog, onDeleteLog, showToast }) => {
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
   const logsWithShame = logs.filter(l=>l.hasShame&&l.shameLevel!=null);
   const avgShame = logsWithShame.length===0?0:Math.round(logsWithShame.reduce((a,l)=>a+l.shameLevel,0)/logsWithShame.length);
 
@@ -693,11 +718,23 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
 
               return (
                 <div key={log.id} style={{
+                  position: 'relative',
                   background:card,border:`1px solid ${bd}`,borderRadius:20,padding:'18px',
                   display:'flex',flexDirection:'column', transition:'all .25s',
                   animation:`fadeSlideIn .4s ease-out ${li*0.06}s both`,
                   boxShadow:isDark?'0 2px 12px rgba(0,0,0,0.2)':'0 2px 12px rgba(0,0,0,0.04)'
                 }}>
+                  {/* 👑 مدال اختصاصی حذف که جایگزین window.confirm شده است 👑 */}
+                  {deleteConfirmId === log.id && (
+                    <div style={{position:'absolute',inset:0,background:card,borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',gap:10,zIndex:20,flexDirection:'column'}}>
+                      <span style={{color:tx,fontSize:14,fontWeight:900,marginBottom:10}}>آیا این لاگ حذف شود؟</span>
+                      <div style={{display:'flex',gap:10}}>
+                        <button onClick={() => { onDeleteLog(log.id); setDeleteConfirmId(null); }} style={{background:'#ef4444',color:'white',border:'none',padding:'8px 16px',borderRadius:10,fontWeight:700,cursor:'pointer'}}>بله، حذف کن</button>
+                        <button onClick={() => setDeleteConfirmId(null)} style={{background:isDark?'#27272a':'#e2e8f0',color:tx,border:'none',padding:'8px 16px',borderRadius:10,fontWeight:700,cursor:'pointer'}}>لغو</button>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                     <span style={{color:sub,fontSize:11,display:'flex',alignItems:'center',gap:4}}>
                       <Clock size={11}/> {toPersianNum(log.date)}
@@ -737,7 +774,7 @@ const DashboardView = ({ logs, sessionNotes, onExportPDF, onExportWord, onPrint,
                             <button onClick={() => onEditLog(log)} style={{color: sub, background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="ویرایش">
                               <Edit2 size={16}/>
                             </button>
-                            <button onClick={() => {if(window.confirm('آیا از حذف این لاگ مطمئن هستید؟')) onDeleteLog(log.id)}} style={{color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="حذف">
+                            <button onClick={() => setDeleteConfirmId(log.id)} style={{color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 4}} title="حذف">
                               <Trash2 size={16}/>
                             </button>
                         </div>
@@ -935,7 +972,7 @@ export default function App() {
   const handlePrint = () => {
     const printContent = document.getElementById('export-container-data').innerHTML;
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if(!printWindow) return alert('پاپ‌آپ مسدود شده است. لطفا آن را باز کنید.');
+    if(!printWindow) return showToast('پاپ‌آپ مرورگر مسدود شده است. لطفا آن را باز کنید.'); // 👑 Alert removed 👑
     
     printWindow.document.write(`
       <html dir="rtl" lang="fa">
@@ -983,19 +1020,7 @@ export default function App() {
 
   return (
     <div dir="rtl" className={isDark?'dark':''} style={{fontFamily:'Vazirmatn,sans-serif',minHeight:'100vh', background: isDark?'#09090b':'#f8fafc', color: isDark?'#f4f4f5':'#1e293b'}}>
-      <style dangerouslySetInnerHTML={{__html:`
-        input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
-        input[type=range]:focus { outline: none; }
-        input[type=range]::-webkit-slider-thumb { 
-          -webkit-appearance:none; 
-          width:24px; height:24px; border-radius:50%; 
-          opacity:0; cursor:pointer; 
-        }
-        input[type=range]::-moz-range-thumb { 
-          width:24px; height:24px; border-radius:50%; 
-          opacity:0; border:none; cursor:pointer; 
-        }
-      `}} />
+      {/* 👑 دیگه نیازی به استایل‌های کثیف WebKit نیست. اسلایدر LTR کاملاً نامرئی کار خودش رو می‌کنه 👑 */}
       <PdfTable logs={logs}/>
       <SaveAnimation show={showSave}/>
       <Toast msg={toast}/>
@@ -1015,6 +1040,7 @@ export default function App() {
         }}
         onEditLog={handleEditLog}
         onDeleteLog={handleDeleteLog}
+        showToast={showToast}
       />
 
       <FABMenu
@@ -1028,6 +1054,7 @@ export default function App() {
            onSave={handleSaveLog} 
            onClose={() => { setEditingLog(null); closeModal('addLog'); }} 
            isDark={isDark}
+           showToast={showToast}
         />
       )}
 
@@ -1043,6 +1070,7 @@ export default function App() {
           onDelete={handleDeleteNote}
           onClose={() => closeModal('notes')}
           isDark={isDark}
+          showToast={showToast}
         />
       )}
     </div>
